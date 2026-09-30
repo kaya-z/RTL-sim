@@ -1,0 +1,5 @@
+build/
+refs/
+*.o
+*.trace
+*.vcd
