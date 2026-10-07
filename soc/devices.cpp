@@ -1,3 +1,8 @@
+// Credits / references:
+//   * sbc09 (L.C. Benschop and the sbc09 team, GPLv2; S. Kono's OS-9 fork github.com/shinji-kono/sbc09):
+//     I/O map ($E000 ACIA, $E030 timer/RTC, $E040 disk controller), the pdisk sector protocol and the
+//     /v0 "virtual RBF" command protocol (os9/level*/vrbf.asm, src/io.c, src/vdisk.c) are modelled after it.
+//   * NitrOS-9 / OS-9 Level 1 (Microware, the NitrOS-9 project) is the guest software; it is not distributed here.
 #include "devices.h"
 #include "../host/vdisk.h"
 #include <cstring>

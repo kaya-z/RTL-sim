@@ -1,3 +1,11 @@
+// Credits / references:
+//   * sbc09 (L.C. Benschop and the sbc09 team, GPLv2; S. Kono's OS-9 fork github.com/shinji-kono/sbc09):
+//     I/O map ($E000 ACIA, $E030 timer/RTC, $E040 disk controller), the pdisk sector protocol and the
+//     /v0 "virtual RBF" command protocol (os9/level*/vrbf.asm, src/io.c, src/vdisk.c) are modelled after it.
+//   * NitrOS-9 / OS-9 Level 1 (Microware, the NitrOS-9 project) is the guest software; it is not distributed here.
+//   NOTE: this is a clean re-implementation of vdisk.c's *behaviour* (including quirks that OS-9 programs
+//   such as `dir` observe).  Because it deliberately mirrors a GPLv2 program, treat host/vdisk.cpp as a
+//   derived work for licensing purposes (see README).
 // vdisk.cpp - host side of the "virtual RBF" file manager (/v0)
 //
 // Protocol (defined by sbc09's os9/level*/vrbf.asm, which is the OS-9 side):

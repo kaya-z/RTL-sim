@@ -1,3 +1,12 @@
+// Credits / references:
+//   * MAME m6809 core (src/devices/cpu/m6809/m6809.cpp, m6809.lst, base6x09.lst) -
+//     (c) Nathan Woods, BSD-3-Clause.  The per-instruction bus-cycle sequences, the interrupt/CWAI/SYNC
+//     sequencing, TFR/EXG register semantics, the DAA algorithm and the "NMI armed after LDS" rule were
+//     taken from it as a *specification*; this file is an independent re-implementation (no code copied).
+//   * sbc09 v09s.c / engine.c - (c) 1994 L.C. Benschop and the sbc09 team, GPLv2 (S. Kono's fork
+//     github.com/shinji-kono/sbc09): instruction semantics and the flag behaviour of undefined cases
+//     (H after ASL/ASR) follow v09s.c.  Used as reference only; not included here.
+//   * Motorola MC6809/MC6809E data sheet and Programming Manual: instruction set, cycle tables.
 // mc6809_ucode.cpp - micro-ROM generator for the MC6809 core
 //
 // Every micro-op is one bus cycle.  The cycle sequences below are the

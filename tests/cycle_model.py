@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Independent MC6809E cycle-count model (from the data-sheet instruction tables).
+"""Credits: cycle tables from the Motorola MC6809E data sheet (cross-checked against MAME m6809, BSD-3-Clause, N. Woods).
+
+Independent MC6809E cycle-count model (from the data-sheet instruction tables).
 
 expected_cycles(image, pc, cc) -> int | None       (None = not modelled: SYNC/CWAI/RTI/SWI...)
 Used by cmp_cycles.py to check the RTL core's per-instruction bus-cycle count.

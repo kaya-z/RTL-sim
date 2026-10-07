@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Credits: operates on sbc09 (L.C. Benschop and the sbc09 team, GPLv2; S. Kono's fork github.com/shinji-kono/sbc09).
+# The sources are patched into generated copies at build time; nothing from sbc09 is stored in this repository.
 """Generate engine_fixed.c from sbc09's src/engine.c (the interpreter that runs OS-9 in v09).
 
 engine.c is used only to cross-check the OS-9 boot.  Its treatment of the *undefined* half-carry

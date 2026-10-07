@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Credits: operates on sbc09 (L.C. Benschop and the sbc09 team, GPLv2; S. Kono's fork github.com/shinji-kono/sbc09).
+# The sources are patched into generated copies at build time; nothing from sbc09 is stored in this repository.
 """Generate v09s_fixed.c from sbc09's src/v09s.c.
 
 v09s.c is the instruction-set reference for this project, but it has a handful of defects

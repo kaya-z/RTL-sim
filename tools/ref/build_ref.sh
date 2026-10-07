@@ -1,4 +1,6 @@
 #!/bin/sh
+# Credits: operates on sbc09 (L.C. Benschop and the sbc09 team, GPLv2; S. Kono's fork github.com/shinji-kono/sbc09).
+# The sources are patched into generated copies at build time; nothing from sbc09 is stored in this repository.
 # Build the lock-step reference harnesses from a checkout of shinji-kono/sbc09.
 # Usage: tools/ref/build_ref.sh <sbc09-checkout> <outdir>
 # The reference sources are GPLv2 and are NOT copied into this repository.

@@ -1,4 +1,6 @@
 #!/bin/sh
+# Credits: operates on sbc09 (L.C. Benschop and the sbc09 team, GPLv2; S. Kono's fork github.com/shinji-kono/sbc09).
+# The sources are patched into generated copies at build time; nothing from sbc09 is stored in this repository.
 # Fetch and build the external reference material used by the simulator and the tests:
 #
 #   refs/sbc09        shinji-kono/sbc09 (GPLv2): v09s.c / engine.c (instruction reference), the

@@ -1,3 +1,7 @@
+/* Credits: this harness drives sbc09 (L.C. Benschop and the sbc09 team, GPLv2; S. Kono's fork
+ * github.com/shinji-kono/sbc09: v09s.c, engine.c, io.c, vdisk.c).  Those files are NOT part of this
+ * repository: they are compiled from a separate checkout (scripts/setup_refs.sh).  Parts of the bus
+ * model are used as a lock-step *reference* for the RTL core. */
 /* refrun.c - lock-step reference harness around sbc09's engine.c
  *
  * Not part of the RTL simulator.  It links the *unmodified* sbc09 instruction
