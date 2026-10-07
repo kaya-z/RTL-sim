@@ -11,7 +11,7 @@ def dump(n):
     for k in ('a', 'b', 'c', 'd'):
         shutil.copy('/tmp/ref/OS9.dsk' if k in 'ac' else '/tmp/ref/WORK.dsk', f'{T}/{k}.dsk')
     subprocess.run(['/home/user/RTL-sim/build/rtlsim', '-rom', '/tmp/ref/os9v1.rom', '-0', f'{T}/a.dsk', '-1', f'{T}/b.dsk', '-in', inp,
-                    '-n', str(n), '-sched', f'{T}/s.txt', '-fixed-time', '-rxshift', '0', '-noterm', '-indelay', delay, '-v', vdir,
+                    '-n', str(n), '-sched', f'{T}/s.txt', '-turbo', '-fixed-time', '-rxshift', '0', '-noterm', '-indelay', delay, '-v', vdir,
                     '-dumpram', f'{T}/rtl.ram'], env=env, capture_output=True)
     subprocess.run(['/tmp/ref/bin/refos9', '-mode', 'os9', '-rom', '/tmp/ref/os9v1.rom', '-0', f'{T}/c.dsk', '-1', f'{T}/d.dsk', '-in', inp,
                     '-n', str(n), '-trace', f'{T}/ref.trace', '-sched', sched, '-v', vdir, '-dump', f'{T}/ref.ram'],

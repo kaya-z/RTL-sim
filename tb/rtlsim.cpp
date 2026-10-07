@@ -5,6 +5,8 @@
 // Options (compatible in spirit with sbc09's v09):
 //   -rom f  -l addr  -0 f  -1 f  -v dir  -e escchar
 //   -in f            keystrokes from a script file (LF -> CR)   -indelay N  hold them back for N E-cycles
+//   -clock Hz        E-clock frequency the machine is paced to in real time (default 2000000 = FM-11 EX class 68B09E);
+//                    -clock 0 / -turbo runs unpaced (tests).  A host slower than the clock simply falls behind.
 //   -cycles N        stop after N E-cycles           -drain N   run N more cycles after the script ends
 //   -trace f         instruction trace (pc a b x y u s dp cc) for lock-step comparison
 //   -sched f         write timer/IRQ schedule for the reference harness (implies -tick-aligned)
@@ -19,6 +21,7 @@
 #include <cstring>
 #include <string>
 #include <chrono>
+#include <thread>
 #include "../soc/sbc09.h"
 #include "vcd.h"
 
@@ -35,6 +38,7 @@ struct Options {
   uint64_t cycles = 0;          // 0 = unlimited
   uint64_t drain = 0;
   uint64_t indelay = 0;
+  double clock_hz = 2000000;     // E clock; 0 = run as fast as possible (tests)
   int esc = 0x1d;
   bool stats = false;
   bool term = true;
@@ -60,6 +64,8 @@ int main(int argc, char** argv) {
     else if (!strcmp(argv[i], "-cycles")) o.cycles = strtoull(arg(), 0, 0);
     else if (!strcmp(argv[i], "-drain")) o.drain = strtoull(arg(), 0, 0);
     else if (!strcmp(argv[i], "-indelay")) o.indelay = strtoull(arg(), 0, 0);
+    else if (!strcmp(argv[i], "-clock")) o.clock_hz = strtod(arg(), 0);
+    else if (!strcmp(argv[i], "-turbo")) o.clock_hz = 0;
     else if (!strcmp(argv[i], "-trace")) o.trace = arg();
     else if (!strcmp(argv[i], "-sched")) { o.sched = arg(); o.cfg.tick_aligned = true; }
     else if (!strcmp(argv[i], "-n")) o.nmax = strtol(arg(), 0, 0);
@@ -160,8 +166,18 @@ int main(int argc, char** argv) {
 
   auto t0 = std::chrono::steady_clock::now();
   uint64_t limit = o.cycles;
+  // real-time pacing: simulated time (cycles / clock) is locked to the host's steady clock in 1 ms slices,
+  // so the speed does not depend on how fast the host is (as long as it is fast enough)
+  const uint64_t slice = o.clock_hz > 0 ? static_cast<uint64_t>(o.clock_hz / 1000) + 1 : 0;
+  uint64_t lag_slices = 0, nslices = 0;
   while (!pr.stop && !con.quit()) {
     sys.step_cycle();
+    if (slice && sys.cycles() % slice == 0) {
+      ++nslices;
+      const auto due = t0 + std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                                std::chrono::duration<double>(sys.cycles() / o.clock_hz));
+      if (std::chrono::steady_clock::now() < due) std::this_thread::sleep_until(due); else ++lag_slices;
+    }
     if (limit && sys.cycles() >= limit) break;
     if (o.in && con.script_done() && o.drain) {
       if (!pr.script_done_seen) { pr.script_done_seen = true; pr.drain_until = sys.cycles() + o.drain; }
@@ -174,7 +190,8 @@ int main(int argc, char** argv) {
   if (o.dumpram) { FILE* d = fopen(o.dumpram, "wb"); fwrite(sys.ram.mem.raw(), 1, 65536, d); fclose(d); }
   if (o.stats) {
     double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-    fprintf(stderr, "\n[rtlsim] %llu E-cycles, %ld traced instructions, %.2f s host time (%.2f M cycles/s)\n",
+    if (slice) fprintf(stderr, "\n[rtlsim] paced to %.3f MHz; host could not keep up in %llu of %llu ms slices\n", o.clock_hz / 1e6, (unsigned long long)lag_slices, (unsigned long long)nslices);
+    fprintf(stderr, "[rtlsim] %llu E-cycles, %ld traced instructions, %.2f s host time (%.2f M cycles/s)\n",
             (unsigned long long)sys.cycles(), iter, dt, sys.cycles() / dt / 1e6);
     fprintf(stderr, "[rtlsim] ticks %llu  disk r/w/err %llu/%llu/%llu  acia rx/tx %llu/%llu\n",
             (unsigned long long)sys.timer.ticks, (unsigned long long)sys.disk.reads, (unsigned long long)sys.disk.writes,
