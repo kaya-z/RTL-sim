@@ -10,10 +10,12 @@ Motorola MC6809E を、**命令単位の機能シミュレーションではな�
 make                        # build/rtlsim, build/ramtest, build/test_cpu
 make check-cpu              # 指向テスト（外部ファイル不要）
 scripts/setup_refs.sh       # sbc09 を clone して OS-9 ROM/ディスク/リファレンスをビルド（要ネットワーク）
-build/rtlsim -rom build/os9v1.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk -v build/os9level1
+build/rtlsim -rom build/os9v1.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk -v build/os9
 ```
 
-`-v dir` はホストのディレクトリを OS-9 の `/v0` に見せます（例: `/v0/dir`, `/v0/mdir`）。端末が TTY なら対話入力、`-in file` ならスクリプト入力です。終了は `Ctrl-]`（`-e` で変更）。
+`setup_refs.sh` は `scripts/build_cmds.sh` も呼び、NitrOS-9 のコマンド群（`dir copy list edit procs …`）と **BASIC09**（`basic09` / `runb`）を a09 でアセンブルして `build/os9/cmds` に置きます。SysGo は実行ディレクトリを `/v0/cmds` にするので、`-v build/os9` を付ければ名前だけで実行できます（例: `basic09`、`edit hello` → `run hello`）。標準の `OS9.dsk` は Dragon 用で BASIC09 などを含みません。
+
+`-v dir` はホストのディレクトリを OS-9 の `/v0` に見せます（実行ディレクトリは `/v0/cmds`）。端末が TTY なら対話入力、`-in file` ならスクリプト入力です。終了は `Ctrl-]`（`-e` で変更）。
 
 主なオプション: `-rom -l -0 -1 -v -in -indelay N -cycles N -trace f -sched f -n N -tick N -fixed-time -firq -vcd f [-vcd-from N -vcd-cycles N] -iolog f -dumpram f -stats`。（`rtlsim` を引数なしで実行すると使い方が出ます。）
 
