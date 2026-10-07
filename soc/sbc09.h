@@ -18,7 +18,7 @@ struct Config {
   std::string disk[2];             // raw sector images for drives 0/1
   std::string vdisk_root;          // host directory for /v0 (empty: none)
   bool timer_firq = false;         // wire the timer to FIRQ instead of IRQ
-  uint32_t tick_cycles = 20000;    // E cycles per tick (50 Hz at 1 MHz)
+  uint32_t tick_cycles = 1000000;   // E cycles per tick (50 Hz at a 50 MHz E clock). 20000 = 50 Hz at 1 MHz, but this sbc09 OS-9 guest then garbles its output (also seen on the original v09 with a fast timer)
   bool tick_aligned = false;       // test mode: ticks only between instructions
   bool fixed_time = false;         // deterministic RTC
   unsigned rx_poll_shift = 8;      // poll the host every 2^n cycles for a received character

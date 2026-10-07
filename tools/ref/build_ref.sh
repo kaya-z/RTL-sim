@@ -20,8 +20,8 @@ cc $CF -DUSE_VDISK -c -o "$OUT/refrun_os9.o" "$HERE/refrun.c"
 cc $CF -I"$OUT" -c -o "$OUT/engine.o" "$OUT/engine_fixed.c"
 cc $CF -DUSE_VDISK -DTERM_CONTROL -DUSE_TERMIOS -Dtime=my_time -Dsetitimer=my_setitimer -c -o "$OUT/io.o" "$SBC/src/io.c"
 # vdisk.c uses the BSD-only d_namlen member of struct dirent -> strlen(d_name)
-# (and `struct stat st;` is read uninitialised for fmemopen streams -> zero it so the reference is deterministic)
-sed -e 's/dp->d_namlen/strlen(dp->d_name)/g' -e 's/struct stat st;/struct stat st; memset(\&st, 0, sizeof st);/' "$SBC/src/vdisk.c" > "$OUT/vdisk_fixed.c"
+# (the directory image is fmemopen()ed with size+1 -> allocate and zero the extra byte; `struct stat st;` is read uninitialised for fmemopen streams -> zero it so the reference is deterministic)
+sed -e 's/dp->d_namlen/strlen(dp->d_name)/g' -e 's/struct stat st;/struct stat st; memset(\&st, 0, sizeof st);/' -e 's/malloc(dircount\*DIR_SZ)/calloc(dircount*DIR_SZ+1,1)/' "$SBC/src/vdisk.c" > "$OUT/vdisk_fixed.c"
 cc $CF -ftrivial-auto-var-init=zero -I"$SBC/src" -DUSE_VDISK -c -o "$OUT/vdisk.o" "$OUT/vdisk_fixed.c"
 cc -o "$OUT/refos9" "$OUT/refrun_os9.o" "$OUT/engine.o" "$OUT/io.o" "$OUT/vdisk.o"
 echo "built $OUT/refs $OUT/refram $OUT/refos9"

@@ -383,7 +383,12 @@ struct Builder {
       case 0x4: op_alu8(en, md, F_AND, r8); return;
       case 0x5: op_alu8(en, md, F_BIT, r8); return;
       case 0x6: op_alu8(en, md, F_LD, r8); return;
-      case 0x7: if (md != M_IMM) op_st8(en, md, r8); return;
+      case 0x7:
+        if (md != M_IMM) { op_st8(en, md, r8); return; }
+        begin(en, M_IMM);                                   // undocumented "STA #imm": operand is read, N/Z from the register, V cleared (MAME XST8)
+        { UOp& u = rdpc(ACT_ST8); u.reg = r8; }
+        end();
+        return;
       case 0x8: op_alu8(en, md, F_EOR, r8); return;
       case 0x9: op_alu8(en, md, F_ADC, r8); return;
       case 0xA: op_alu8(en, md, F_OR, r8); return;
@@ -433,7 +438,7 @@ struct Builder {
     for (int o = 0; o < 256; ++o) build_page2(o);
     // Undocumented aliases that MAME implements (and sbc09 treats as NOP): decoded, but flagged.
     static const uint8_t undoc0[] = {0x01, 0x02, 0x05, 0x0B, 0x1B, 0x38, 0x41, 0x42, 0x45, 0x4B, 0x51, 0x52, 0x55,
-                                     0x5B, 0x61, 0x62, 0x65, 0x6B, 0x71, 0x72, 0x75, 0x7B};
+                                     0x5B, 0x61, 0x62, 0x65, 0x6B, 0x71, 0x72, 0x75, 0x7B, 0x87, 0xC7};
     for (uint8_t o : undoc0) m.entry[0][o].undoc = true;
     m.entry[1][0x20].undoc = true;                                   // $1020 LBRA alias
   }

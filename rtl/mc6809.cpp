@@ -463,13 +463,14 @@ void Cpu::step(const Pins& p, Core& n) {
           if (n.page) n.ev_ill = true;                            // prefix after prefix
           n.page = (d == 0x10) ? 1 : 2; return mr_.r_fetch2;
         }
-        const Entry& en = mr_.entry[n.page][d];
-        if (en.undoc) n.ev_ill = true;
-        if (!en.valid) {
+        const Entry* ep = &mr_.entry[n.page][d];
+        if (ep->undoc) n.ev_ill = true;
+        if (!ep->valid) {
           n.ev_ill = true;
-          if (n.page) { n.page = 0; return mr_.r_fetch2; }        // undefined prefixed op: re-dispatch (MAME)
-          return mr_.r_illegal;                                     // illegal op: fetch only
+          if (n.page) { n.page = 0; ep = &mr_.entry[0][d]; }     // undefined prefixed op: prefix ignored (sbc09 behaviour)
+          if (!ep->valid) return mr_.r_illegal;                  // illegal op: fetch only
         }
+        const Entry& en = *ep;
         n.link = static_cast<uint16_t>(en.ret);
         return en.start;
       }
