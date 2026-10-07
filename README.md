@@ -81,9 +81,9 @@ scripts/setup_refs.sh   sbc09 の取得、a09 による OS-9 ROM 生成、ハー
 
 ## クレジットとライセンス
 
-* 本リポジトリのコードは **MIT License**（`LICENSE`、© 2026 Shin'ichi KAYANUMA）です。
+* 本リポジトリのコードは原則 **MIT License**（`LICENSE`、© 2026 Shin'ichi KAYANUMA）です。**例外: `host/vdisk.cpp`・`host/vdisk.h` は GPL v2**（`LICENSES/GPL-2.0.txt`）で、これを含む `rtlsim` バイナリは全体が GPL v2 として扱われます。詳細は `NOTICE.md`。
 * **MAME m6809 コア**（© Nathan Woods, BSD-3-Clause）— バスサイクル列・割り込み手順などの仕様として参照。各ソース冒頭に明記。
 * **sbc09**（© 1994 L.C. Benschop ほか sbc09 チーム、**GPL v2**。OS-9 対応版は Shinji Kono 氏の https://github.com/shinji-kono/sbc09）— `v09s.c`・`engine.c`・`io.c`・`vdisk.c`・`os9/` 以下（`vrbf.asm` 等）を参照／照合に使用。ソースは**コピーしておらず**、`scripts/setup_refs.sh` で別途取得します。
-* `host/vdisk.cpp` は vdisk.c の**挙動（癖を含む）を再実装**したものです。GPL v2 のプログラムを忠実に模しているため、**派生物として扱う可能性があります**。再配布する場合は GPL v2 の適用可否を確認してください。
+* `host/vdisk.cpp` は vdisk.c の**挙動（癖を含む）を再実装**したもので、派生物として **GPL v2** を適用しています（上記）。
 * **NitrOS-9 / OS-9**（Microware、NitrOS-9 プロジェクト）— ゲスト OS。ROM／ディスクイメージは本リポジトリに含めません（`setup_refs.sh` が sbc09 のソースからビルド）。
 * Motorola MC6809/MC6809E データシート／プログラミングマニュアル — 命令表とサイクル表。
