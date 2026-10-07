@@ -7,7 +7,7 @@
 #                     a09 assembler, the NitrOS-9 sources and disk images
 #   build/os9v1.rom   NitrOS-9 Level 1 ROM image built from those sources   (boot ROM for rtlsim)
 #   build/disks/      OS9.dsk / WORK.dsk copies (raw 256-byte-sector images)
-#   build/os9level1/  the level1 module files (host directory used for /v0)
+#   build/os9/cmds/   NitrOS-9 commands + BASIC09 assembled from the sources (host directory used for /v0)
 #   build/ref/        lock-step reference harnesses (refs / refos9)
 #
 # Nothing from sbc09 is committed to this repository.
@@ -34,11 +34,9 @@ SBC=$REFS/sbc09
     level1/os9p2 level1/os9p1 >/dev/null )
 cp "$SBC/os9/os9v1.rom" "$B/os9v1.rom"
 cp "$SBC/os9/OS9.dsk" "$SBC/os9/WORK.dsk" "$B/disks/"
-mkdir -p "$B/os9level1"
-for f in shell dir mdir sysgo ioman pdisk rbf scf clock init pty term d0 d1 vrbf v0 pipe piper os9p1 os9p2; do
-  [ -f "$SBC/os9/level1/$f" ] && cp "$SBC/os9/level1/$f" "$B/os9level1/$f"
-done
+# --- commands and BASIC09 for /v0/cmds ------------------------------------------------------------
+"$HERE/scripts/build_cmds.sh" "$B/os9" </dev/null
 
 # --- lock-step reference harnesses -------------------------------------------------------------
 "$HERE/tools/ref/build_ref.sh" "$SBC" "$B/ref"
-echo "ready: $B/os9v1.rom  $B/disks/  $B/os9level1/  $B/ref/"
+echo "ready: $B/os9v1.rom  $B/disks/  $B/os9/  $B/ref/"
