@@ -1,48 +1,34 @@
-// console.h - host side of the serial console (not RTL: this is the "testbench"
-// side of the ACIA, like a $fgetc/$fwrite DPI call in a Verilog test bench).
-#pragma once
-#include <cstdio>
-#include <cstdint>
-#include <string>
-#include <deque>
+/* console.h - host side of the serial console (not RTL: this is the "testbench"
+ * side of the ACIA, like a $fgetc/$fwrite DPI call in a Verilog test bench). (C11) */
+#ifndef CONSOLE_H
+#define CONSOLE_H
 
-namespace host {
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
+#include <stdio.h>
 
-class Console {
- public:
-  Console();
-  ~Console();
+typedef struct Console {
+  FILE *script;
+  bool  script_eof;
+  bool  term, termios_saved;
+  FILE *out;
+  bool  capture;
+  char *cap; size_t cap_n, cap_cap;
+  int  *pending; size_t pend_head, pend_n, pend_cap;     /* FIFO of programmatic input */
+  bool  hold;                                            /* withhold all input (typed-ahead text waits) */
+  int   esc;                                             /* terminal escape character (quits the simulation) */
+  bool  quit;
+  void *saved;                                           /* saved termios + fcntl flags */
+} Console;
 
-  // input sources: a script file (consumed first) and/or the terminal
-  bool open_script(const char* path);
-  void queue_input(const std::string& s);       // programmatic input
-  void use_terminal(bool on);                   // raw, non-blocking stdin
-  void set_stdout(FILE* f) { out_ = f; }
-  void set_capture(bool on) { capture_ = on; }
-  void set_escape(int c) { esc_ = c; }          // terminal escape character (quits the simulation)
-  bool quit() const { return quit_; }
-  void hold(bool on) { hold_ = on; }            // withhold all input (typed-ahead text waits)
+void console_init(Console *c);
+void console_free(Console *c);
+bool console_open_script(Console *c, const char *path);      /* script file (consumed first) */
+void console_queue_input(Console *c, const char *s);         /* programmatic input */
+void console_use_terminal(Console *c, bool on);              /* raw, non-blocking stdin */
+int  console_poll(Console *c);                               /* -1 = nothing available */
+void console_put(Console *c, uint8_t ch);
+static inline bool console_script_done(const Console *c) { return c->script_eof && c->pend_n == 0; }
 
-  int poll();                                   // -1 = nothing available
-  void put(uint8_t c);
-
-  const std::string& captured() const { return cap_; }
-  bool script_done() const { return script_eof_ && pending_.empty(); }
-
- private:
-  FILE* script_ = nullptr;
-  bool script_eof_ = true;
-  bool term_ = false;
-  bool termios_saved_ = false;
-  FILE* out_ = stdout;
-  bool capture_ = false;
-  std::string cap_;
-  std::deque<int> pending_;
-  bool hold_ = false;
-  int esc_ = -1;
-  bool quit_ = false;
-  struct Saved;
-  Saved* saved_ = nullptr;
-};
-
-}  // namespace host
+#endif
