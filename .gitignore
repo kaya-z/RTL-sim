@@ -3,3 +3,4 @@ refs/
 *.o
 *.trace
 *.vcd
+__pycache__/
