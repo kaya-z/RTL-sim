@@ -9,6 +9,7 @@ Motorola MC6809E を、**命令単位の機能シミュレーションではな�
 ```sh
 make                        # build/rtlsim, build/ramtest, build/test_cpu
 make check-cpu              # 指向テスト（外部ファイル不要）
+make check                  # 上記＋（scripts/setup_refs.sh 済みなら）v09s とのランダム命令列ロックステップ
 scripts/setup_refs.sh       # sbc09 を clone して OS-9 ROM/ディスク/リファレンスをビルド（要ネットワーク）
 build/rtlsim -rom build/os9v1.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk -v build/os9
 ```

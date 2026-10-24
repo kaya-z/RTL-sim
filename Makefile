@@ -25,7 +25,17 @@ $(BUILD)/test_cpu: tb/test_cpu.c $(CPU_SRC) $(HDRS) | $(BUILD)
 check-cpu: $(BUILD)/test_cpu
 	$(BUILD)/test_cpu
 
+# lock-step checks against the sbc09 reference harnesses (needs scripts/setup_refs.sh; REF_BIN=<dir with refs/refos9/refos9c>)
+SEEDS ?= 1 2 3 4 5
+check-ref: all
+	@for s in $(SEEDS); do tests/run_lockstep.sh $$s 20000 || exit 1; done
+
+# everything that can run without external ROM/disk images, plus the reference lock-step when available
+check: check-cpu
+	@if [ -x "$${REF_BIN:-build/ref}/refs" ]; then REF_BIN=$${REF_BIN:-$(CURDIR)/build/ref} $(MAKE) --no-print-directory check-ref; \
+	 else echo "(reference harness not built: run scripts/setup_refs.sh to enable check-ref)"; fi
+
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all clean check-cpu
+.PHONY: all clean check-cpu check-ref check
