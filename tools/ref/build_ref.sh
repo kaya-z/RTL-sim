@@ -26,4 +26,11 @@ cc $CF -DUSE_VDISK -DTERM_CONTROL -DUSE_TERMIOS -Dtime=my_time -Dsetitimer=my_se
 sed -e 's/dp->d_namlen/strlen(dp->d_name)/g' -e 's/struct stat st;/struct stat st; memset(\&st, 0, sizeof st);/' -e 's/malloc(dircount\*DIR_SZ)/calloc(dircount*DIR_SZ+1,1)/' "$SBC/src/vdisk.c" > "$OUT/vdisk_fixed.c"
 cc $CF -ftrivial-auto-var-init=zero -I"$SBC/src" -DUSE_VDISK -c -o "$OUT/vdisk.o" "$OUT/vdisk_fixed.c"
 cc -o "$OUT/refos9" "$OUT/refrun_os9.o" "$OUT/engine.o" "$OUT/io.o" "$OUT/vdisk.o"
-echo "built $OUT/refs $OUT/refram $OUT/refos9"
+# Level 2 (v09c: CoCo-like MMU, IOPAGE=$FF80, 2 MiB): same sources compiled with -DUSE_MMU
+MMU="-DUSE_MMU=1 -DIOPAGE=0xff80"
+cc $CF $MMU -DUSE_VDISK -c -o "$OUT/refrun_os9c.o" "$HERE/refrun.c"
+cc $CF $MMU -I"$OUT" -c -o "$OUT/engine_c.o" "$OUT/engine_fixed.c"
+cc $CF $MMU -DUSE_VDISK -DTERM_CONTROL -DUSE_TERMIOS -Dtime=my_time -Dsetitimer=my_setitimer -c -o "$OUT/io_c.o" "$SBC/src/io.c"
+cc $CF $MMU -ftrivial-auto-var-init=zero -I"$SBC/src" -DUSE_VDISK -c -o "$OUT/vdisk_c.o" "$OUT/vdisk_fixed.c"
+cc -o "$OUT/refos9c" "$OUT/refrun_os9c.o" "$OUT/engine_c.o" "$OUT/io_c.o" "$OUT/vdisk_c.o"
+echo "built $OUT/refs $OUT/refram $OUT/refos9 $OUT/refos9c"

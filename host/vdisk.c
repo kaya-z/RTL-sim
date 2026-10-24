@@ -65,14 +65,24 @@ struct Vdisk {
 };
 
 /* ---- system-space memory helpers ------------------------------------------------------------ */
-static uint8_t rb(const Vdisk *v, uint32_t a) { return diskctl_peek(v->dc, a); }
+/* Level 2: the request frame and path descriptors are addressed through the system map (smem),
+ * names and data buffers through the caller's DAT (pmem); in Level 1 both are the flat 64K space. */
+static uint8_t rb(const Vdisk *v, uint32_t a) { return diskctl_rd_sp(v->dc, SP_SYS, a); }
+static uint8_t rbp(const Vdisk *v, uint32_t a) { return diskctl_rd_sp(v->dc, SP_PROC, a); }
 static uint16_t rw(const Vdisk *v, uint32_t a) { return (uint16_t)((rb(v, a) << 8) | rb(v, a + 1)); }
-static void wb(Vdisk *v, uint32_t a, uint8_t x) { diskctl_poke(v->dc, a, x); }
+static void wb(Vdisk *v, uint32_t a, uint8_t x) { diskctl_wr_sp(v->dc, SP_SYS, a, x); }
+static void wbp(Vdisk *v, uint32_t a, uint8_t x) { diskctl_wr_sp(v->dc, SP_PROC, a, x); }
+/* getDAT(): the caller's process descriptor is at $50 of the system page; its DAT image is at +$40 */
+static void get_dat(Vdisk *v) {
+  if (!v->dc->mmu) return;
+  const uint16_t ps = rw(v, 0x50);
+  for (int i = 0; i < 8; ++i) v->dc->pmmu[i] = rb(v, (uint16_t)(ps + 0x40 + i * 2 + 1));
+}
 static void ww(Vdisk *v, uint32_t a, uint16_t x) { wb(v, a, x >> 8); wb(v, a + 1, x & 0xFF); }
 static void cstr(const Vdisk *v, uint16_t a, char *out) {
   int n = 0;
   for (int i = 0; i < kMaxPath + 2; ++i) {
-    uint8_t c = rb(v, (uint16_t)(a + i));
+    uint8_t c = rbp(v, (uint16_t)(a + i));
     if (c == 0) break;
     out[n++] = (char)c;
   }
@@ -237,7 +247,7 @@ static int file_descriptor(Vdisk *v, uint16_t bufaddr, int len, const char *name
   b[kFdSiz + 2] = (st.st_size >> 8) & 0xFF;
   b[kFdSiz + 3] = st.st_size & 0xFF;
   os9_date(b + kFdCreat, st.st_ctime);
-  for (int i = 0; i < 19; ++i) wb(v, (uint16_t)(bufaddr + i), b[i]);
+  for (int i = 0; i < 19; ++i) wbp(v, (uint16_t)(bufaddr + i), b[i]);
   return 0;
 }
 
@@ -274,6 +284,7 @@ static void run(Vdisk *v, DiskCtl *d, uint8_t cmd) {
   PathDesc *pd = &v->pdv[pdnum];
   pd->num = pdnum;
   pd->drv = diskctl_reg(d, 1);
+  get_dat(v);
 
   static int dbg = -1;
   if (dbg < 0) dbg = getenv("RTLSIM_VDEBUG") != NULL;
@@ -376,10 +387,10 @@ static void run(Vdisk *v, DiskCtl *d, uint8_t cmd) {
       const long p0 = ftell(pd->fp);
       if (yreg > 0 && fgets(buf, yreg, pd->fp)) {
         const long got = ftell(pd->fp) - p0;
-        for (long i = 0; i <= got; ++i) wb(v, (uint16_t)(xreg + i), (uint8_t)buf[i]);   /* incl. the NUL */
+        for (long i = 0; i <= got; ++i) wbp(v, (uint16_t)(xreg + i), (uint8_t)buf[i]);   /* incl. the NUL */
         int i = 0;
         while (i < yreg && buf[i]) ++i;
-        if (i > 0 && buf[i - 1] == '\n') { wb(v, (uint16_t)(xreg + i - 1), '\r'); yreg = (uint16_t)i; }
+        if (i > 0 && buf[i - 1] == '\n') { wbp(v, (uint16_t)(xreg + i - 1), '\r'); yreg = (uint16_t)i; }
         ww(v, u + 6, yreg);
         breg = 0;
       }
@@ -391,7 +402,7 @@ static void run(Vdisk *v, DiskCtl *d, uint8_t cmd) {
       size_t n = 0;
       uint8_t *buf = (uint8_t *)malloc(yreg ? yreg : 1);
       if (pd->fp) n = fread(buf, 1, yreg, pd->fp);
-      for (size_t i = 0; i < n; ++i) wb(v, (uint16_t)(xreg + i), buf[i]);
+      for (size_t i = 0; i < n; ++i) wbp(v, (uint16_t)(xreg + i), buf[i]);
       free(buf);
       ww(v, u + 6, (uint16_t)n);
       breg = (n == 0) ? 0xD3 : 0;
@@ -401,8 +412,8 @@ static void run(Vdisk *v, DiskCtl *d, uint8_t cmd) {
       breg = 0xFF;
       if (pd->dir || !pd->fp) break;
       int len = yreg, i = 0;
-      while (len > 0 && rb(v, (uint16_t)(xreg + i)) != '\r') { fputc(rb(v, (uint16_t)(xreg + i)), pd->fp); ++i; --len; }
-      if (rb(v, (uint16_t)(xreg + i)) == '\r') { fputc('\n', pd->fp); ++i; }
+      while (len > 0 && rbp(v, (uint16_t)(xreg + i)) != '\r') { fputc(rbp(v, (uint16_t)(xreg + i)), pd->fp); ++i; --len; }
+      if (rbp(v, (uint16_t)(xreg + i)) == '\r') { fputc('\n', pd->fp); ++i; }
       fflush(pd->fp);
       breg = 0;
       ww(v, u + 6, (uint16_t)i);
@@ -412,7 +423,7 @@ static void run(Vdisk *v, DiskCtl *d, uint8_t cmd) {
       breg = 0xFF;
       if (!pd->dir && pd->fp) {
         uint8_t *buf = (uint8_t *)malloc(yreg ? yreg : 1);
-        for (int i = 0; i < yreg; ++i) buf[i] = rb(v, (uint16_t)(xreg + i));
+        for (int i = 0; i < yreg; ++i) buf[i] = rbp(v, (uint16_t)(xreg + i));
         size_t n = fwrite(buf, 1, yreg, pd->fp);
         free(buf);
         fflush(pd->fp);

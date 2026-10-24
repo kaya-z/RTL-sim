@@ -24,11 +24,11 @@
  *             updates its registers with RTL_NB / nb_wr; the bus module must be
  *             evaluated before the devices (registration order). */
 typedef struct Device {
-  uint8_t (*rd)(void *self, uint16_t a);
+  uint8_t (*rd)(void *self, uint32_t a);          /* a = bus key: physical address (or CPU address without an MMU) */
   void    *self;
   bool     wr_en;          /* write strobe   (E fall, R/W = 0, selected) */
   bool     rd_en;          /* read  strobe   (E fall, R/W = 1, selected): side effects of a read */
-  uint16_t sa;             /* bus address (device-relative offset added by the bus glue if needed) */
+  uint32_t sa;             /* bus key / device-relative offset */
   uint8_t  wdata;          /* write data */
 } Device;
 
@@ -42,6 +42,9 @@ typedef struct Bus {
   BusRegion regions[BUS_MAX_REGIONS];
   int nregions;
   RTL_REG(int16_t) sel;       /* chip-select (index into regions) */
+  RTL_REG(uint32_t) pa;       /* bus key latched at Q rise: xlat(addr) if an MMU is present, else addr */
+  uint32_t (*xlat)(void *ctx, uint16_t addr);   /* optional address translation (MMU) */
+  void *xlat_ctx;
   RTL_REG(uint8_t) rdata;     /* data bus read value */
   uint64_t rd_cycles, wr_cycles, ncyc;
   FILE *log;                  /* optional bus monitor: "cycle R|W addr data" for [log_lo, log_hi] */
@@ -61,16 +64,18 @@ static inline void bus_eval(void *self, RtlEdge e) {
   switch (e) {
     case RTL_QRISE: {
       int16_t s = -1;
+      const uint32_t key = b->xlat ? b->xlat(b->xlat_ctx, c->addr) : c->addr;
       if (c->vma) {
         for (int i = 0; i < b->nregions; ++i)
-          if (c->addr >= b->regions[i].lo && c->addr <= b->regions[i].hi) { s = (int16_t)i; break; }
+          if (key >= b->regions[i].lo && key <= b->regions[i].hi) { s = (int16_t)i; break; }
       }
       RTL_NB(b->sel, s);
+      RTL_NB(b->pa, key);
       break;
     }
     case RTL_ERISE: {
       uint8_t v = 0xFF;
-      if (b->sel.q >= 0 && c->rw) { Device *d = b->regions[b->sel.q].dev; v = d->rd(d->self, c->addr); }
+      if (b->sel.q >= 0 && c->rw) { Device *d = b->regions[b->sel.q].dev; v = d->rd(d->self, b->pa.q); }
       RTL_NB(b->rdata, v);
       break;
     }
@@ -82,7 +87,7 @@ static inline void bus_eval(void *self, RtlEdge e) {
                 c->rw ? b->rdata.q : c->dout);
       if (b->sel.q >= 0) {
         Device *d = b->regions[b->sel.q].dev;
-        d->sa = c->addr;
+        d->sa = b->pa.q;
         if (c->rw) { d->rd_en = true; ++b->rd_cycles; }
         else       { d->wr_en = true; d->wdata = c->dout; ++b->wr_cycles; }
       }
@@ -90,7 +95,7 @@ static inline void bus_eval(void *self, RtlEdge e) {
     default: break;
   }
 }
-static inline void bus_commit(void *self) { Bus *b = (Bus *)self; RTL_COMMIT(b->sel); RTL_COMMIT(b->rdata); }
+static inline void bus_commit(void *self) { Bus *b = (Bus *)self; RTL_COMMIT(b->sel); RTL_COMMIT(b->pa); RTL_COMMIT(b->rdata); }
 
 static inline void bus_init(Bus *b, const McCpu *cpu) {
   *b = (Bus){0};
@@ -110,7 +115,7 @@ typedef struct Ram {
   RtlNbMem  mem;
 } Ram;
 
-static inline uint8_t ram_rd(void *self, uint16_t a) { return rtl_nbmem_rd(&((Ram *)self)->mem, a); }
+static inline uint8_t ram_rd(void *self, uint32_t a) { return rtl_nbmem_rd(&((Ram *)self)->mem, a); }
 static inline void ram_eval(void *self, RtlEdge e) {
   (void)e; Ram *r = (Ram *)self;
   if (r->dev.wr_en) rtl_nbmem_nb_wr(&r->mem, r->dev.sa, r->dev.wdata);

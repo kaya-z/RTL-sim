@@ -6,6 +6,7 @@
 #   refs/sbc09        shinji-kono/sbc09 (GPLv2): v09s.c / engine.c (instruction reference), the
 #                     a09 assembler, the NitrOS-9 sources and disk images
 #   build/os9v1.rom   NitrOS-9 Level 1 ROM image built from those sources   (boot ROM for rtlsim)
+#   build/os9v2.rom   NitrOS-9 Level 2 ROM image                              (rtlsim -2)
 #   build/disks/      OS9.dsk / WORK.dsk copies (raw 256-byte-sector images)
 #   build/os9/cmds/   NitrOS-9 commands + BASIC09 assembled from the sources (host directory used for /v0)
 #   build/ref/        lock-step reference harnesses (refs / refos9)
@@ -33,6 +34,11 @@ SBC=$REFS/sbc09
     level1/pdisk level1/d0 level1/d1 level1/vrbf level1/v0 level1/clock level1/scf level1/rbf level1/init \
     level1/os9p2 level1/os9p1 >/dev/null )
 cp "$SBC/os9/os9v1.rom" "$B/os9v1.rom"
+# --- NitrOS-9 level 2 ROM (needs the level2 modules prebuilt in the checkout; skipped if they are missing)
+if ( cd "$SBC/os9" && ./make9rom -o os9v2.rom -2 level2/shell level2/dir level2/d1 level2/ioman level2/os9p3_perr \
+      level2/os9p4_regdump level2/pipe level2/piper level2/pipeman level2/v0 level2/vrbf level2/scf level2/rbf \
+      level2/os9p2 level2/sysgo level2/clock level2/pdisk level2/d0 level2/pty level2/term level2/init level2/boot \
+      level2/os9p1 >/dev/null 2>&1 ); then cp "$SBC/os9/os9v2.rom" "$B/os9v2.rom"; else echo "note: os9v2.rom not built (level2 modules missing)"; fi
 cp "$SBC/os9/OS9.dsk" "$SBC/os9/WORK.dsk" "$B/disks/"
 # --- commands and BASIC09 for /v0/cmds ------------------------------------------------------------
 "$HERE/scripts/build_cmds.sh" "$B/os9" </dev/null

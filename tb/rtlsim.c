@@ -3,6 +3,7 @@
  *   rtlsim -rom os9v1.rom -0 OS9.dsk -1 WORK.dsk -v dir [options]
  *
  * Options (compatible in spirit with sbc09's v09):
+ *   -2               Level 2 board (v09c): MMU, 2 MiB RAM, I/O page at $FF80, ROM image loaded at physical $7E000
  *   -rom f  -l addr  -0 f  -1 f  -v dir  -e escchar
  *   -in f            keystrokes from a script file (LF -> CR)   -indelay N  hold them back for N E-cycles
  *   -clock Hz        E-clock frequency the machine is paced to in real time (default 2000000 = FM-11 EX class 68B09E);
@@ -102,6 +103,7 @@ int main(int argc, char **argv) {
   for (int i = 1; i < argc; ++i) {
 #define ARG() (i + 1 >= argc ? (usage(), (const char *)NULL) : argv[++i])
     if (!strcmp(argv[i], "-rom")) o.cfg.rom = ARG();
+    else if (!strcmp(argv[i], "-2")) o.cfg.level2 = true;
     else if (!strcmp(argv[i], "-l")) o.cfg.rom_base = (int32_t)strtol(ARG(), 0, 0);
     else if (!strcmp(argv[i], "-0")) o.cfg.disk[0] = ARG();
     else if (!strcmp(argv[i], "-1")) o.cfg.disk[1] = ARG();
@@ -155,7 +157,7 @@ int main(int argc, char **argv) {
   pr.s = sys; pr.tf = tf; pr.sf = sf; pr.iter = &iter; pr.nmax = o.nmax;
   pr.iof = iof; pr.con = &con; pr.indelay = o.indelay; pr.released = true;
   if (o.indelay) { pr.released = false; con.hold = true; }
-  if (iof) { sys->bus.log = iof; sys->bus.log_lo = 0xE000; sys->bus.log_hi = 0xE1FF; }
+  if (iof) { sys->bus.log = iof; sys->bus.log_lo = o.cfg.level2 ? 0xFE00 : 0xE000; sys->bus.log_hi = o.cfg.level2 ? 0xFFFF : 0xE1FF; }
   rtl_sim_on_edge_end(&sys->sim, probe_edge_end, &pr);
 
   /* ---- waveform dump ---------------------------------------------------------------------------- */

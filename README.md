@@ -2,7 +2,7 @@
 
 Motorola MC6809E を、**命令単位の機能シミュレーションではなく RTL の流儀**（クロックエッジ・ノンブロッキング代入・バスサイクル単位）でモデル化した C11（C 言語）のシミュレーターです。sbc09（v09）互換のボード（ACIA／50Hz タイマ／ディスク）を載せ、**NitrOS-9 Level 1 が起動して `OS9:` プロンプトまで動作**します。
 
-> 状態: Level 1 のみ対応。Level 2（MMU、`v09c` 相当）は未実装です。
+> 状態: **Level 1 と Level 2 の両方が起動します**（Level 2 は `-2`、sbc09 の `v09c` 相当の CoCo 風 MMU）。
 
 ## クイックスタート
 
@@ -17,7 +17,7 @@ build/rtlsim -rom build/os9v1.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk
 
 `-v dir` はホストのディレクトリを OS-9 の `/v0` に見せます（実行ディレクトリは `/v0/cmds`）。端末が TTY なら対話入力、`-in file` ならスクリプト入力です。終了は `Ctrl-]`（`-e` で変更）。
 
-主なオプション: `-clock Hz`（既定 2000000）`-turbo` `-rom -l -0 -1 -v -in -indelay N -cycles N -trace f -sched f -n N -tick N -fixed-time -firq -vcd f [-vcd-from N -vcd-cycles N] -iolog f -dumpram f -stats`。（`rtlsim` を引数なしで実行すると使い方が出ます。）
+主なオプション: `-2`（Level 2 ボード）`-clock Hz`（既定 2000000）`-turbo` `-rom -l -0 -1 -v -in -indelay N -cycles N -trace f -sched f -n N -tick N -fixed-time -firq -vcd f [-vcd-from N -vcd-cycles N] -iolog f -dumpram f -stats`。（`rtlsim` を引数なしで実行すると使い方が出ます。）
 
 ## RTL として何を再現しているか
 
@@ -49,6 +49,22 @@ build/rtlsim -rom build/os9v1.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk
 
 メモリマップ（Level 1）: `$0000–ROM先頭-1` RAM、`ROM先頭–$FFFF` ROM（16KB イメージなら `$C000–`）、`$E000–$E1FF` I/O ページ（ROM に重なる。I/O レジスタ以外は ROM の中身が見える）。
 
+## Level 2（MMU, `-2`）
+
+```sh
+build/rtlsim -2 -rom build/os9v2.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk -v refs/sbc09/os9/level2
+```
+
+`v09c`（`-DUSE_MMU -DIOPAGE=0xff80`）のメモリモデルに合わせています。
+
+| 項目 | 内容 |
+|---|---|
+| 物理メモリ | 2 MiB（8 KiB ブロック × 256）。ROM イメージは物理 `$7E000` から RAM に読み込む（書き込み保護なし） |
+| 変換 | `Mmu`（`soc/devices.c`）。`$FF91` のタスクレジスタ bit0 でシステム用 `$FFA0–A7` / ユーザ用 `$FFA8–AF` を選択。変換は **Q↑ のバスデコード時に組み合わせ回路として**行い（`Bus.xlat`）、DAT への書き込みは NBA 後の次サイクルから有効 |
+| 非変換領域 | `$FE00–$FFFF`（I/O ページ＋固定 RAM）。ACIA `$FF80/81`、MMU `$FF90–AF`、タイマ `$FFB0`、ディスク `$FFC0`。それ以外は物理 `$7FE00–` の RAM |
+| レジスタの実体 | タイマ日時・ディスク・MMU レジスタは、v09c と同様に**物理 RAM と同じバイト**（`RegView` で RAM にエイリアス）。カーネルの `F$Move` が `$FFB1…` を物理メモリとして読むため必要（日付が `2155/255/255` になる不具合の原因だった） |
+| vdisk | 要求フレーム／パス記述子はシステムマップ、名前・データバッファは呼び出しプロセスの DAT（プロセス記述子 `+$40` から取得）で変換。ディスクのセクタ DMA は現在のタスクマップ |
+
 ## 検証
 
 リファレンスはいずれも sbc09 の**生成コピー**（ビルド時にパッチ）です。v09s／engine.c には、データシートや MAME と食い違う不具合（DAA、SWI の E フラグ、PSHU/PULU の S、`NXORV`、$FFFF のラップ、TST の V、ADD の H、CWAI、vdisk の未初期化／範囲外読み出し 等）があるため、パッチ内容は `tools/ref/patch_*.py` に明記し、見つからないパターンはエラーにしています。
@@ -57,6 +73,7 @@ build/rtlsim -rom build/os9v1.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk
 |---|---|---|
 | `tests/run_lockstep.sh <seed> <n>` | ランダムな合法命令列を RTL と v09s で実行し、**命令ごとに pc/A/B/X/Y/U/S/DP/CC を比較**。サイクル数はデータシートモデルと比較 | 全シード一致（SYNC/不正命令に達した時点で打ち切り） |
 | `build/test_cpu`（`make check-cpu`） | リセット列、IRQ/FIRQ/NMI/SWI/SWI2/SWI3 のスタックフレーム・ベクタ・19 サイクル、CWAI/SYNC/HALT、NMI のエッジ性と武装、DAA（BCD 100×100 全通り）、MUL（全 65536 通り） | 63 チェック合格 |
+| `LEVEL=2 tests/os9_lockstep.sh` | Level 2 ROM を RTL と `-DUSE_MMU` ビルドの engine.c（`refos9c`）で起動し、`dir /d0`・`mdir`・`dir /v0`・`dir /v0/cmds` を含めて比較 | **3000 万命令**・割り込み 155 回で一致。コンソール出力・ディスクも同一。実物の `v09c` とも `dir` 等の出力が一致（日時のみ異なる） |
 | `tests/os9_lockstep.sh` | OS-9 ROM を RTL と engine.c で起動し、タイマ割り込みの位置を RTL 側の記録から再生して命令ごとに比較。`/v0/dir`・`dir /d0`・`mdir`・`dir /d0/cmds` を含む | **3000 万命令**・割り込み 161 回で一致。コンソール出力とディスクイメージも同一 |
 
 ### 動作クロック
@@ -76,7 +93,7 @@ host/   console.*（ターミナル/スクリプト入力）, vdisk.*（/v0 ホ�
 tb/     rtlsim.c（本体）, ramtest.c（フラット RAM + トレース）, test_cpu.c, flatsys.h, vcd.h
 tests/  gen_rand.py, run_lockstep.sh, os9_lockstep.sh, cmp_*.py, cycle_model.py, ram_bisect.py
 tools/ref/  リファレンス・ハーネスとパッチ（sbc09 のソースは含まない）
-scripts/setup_refs.sh   sbc09 の取得、a09 による OS-9 ROM 生成、ハーネスのビルド
+scripts/setup_refs.sh   sbc09 の取得、a09 による OS-9 ROM（Level 1/2）生成、ハーネスのビルド
 ```
 
 ## クレジットとライセンス

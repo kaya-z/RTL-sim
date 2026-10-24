@@ -25,6 +25,17 @@
 #include "bus.h"
 #include "../host/console.h"
 
+/* A register file that is either private (Level 1) or an alias of bytes inside main memory (Level 2, where
+ * v09c keeps the I/O registers in the same mem[] that the MMU maps - the kernel reads them through F$Move). */
+typedef struct { RtlNbMem own; RtlNbMem *m; uint32_t base; } RegView;
+static inline void rv_init(RegView *v, size_t n) { rtl_nbmem_init(&v->own, n, 0); v->m = &v->own; v->base = 0; }
+static inline void rv_alias(RegView *v, RtlNbMem *mem, uint32_t base) { rtl_nbmem_free(&v->own); v->m = mem; v->base = base; }
+static inline uint8_t rv_rd(const RegView *v, uint32_t i) { return rtl_nbmem_rd(v->m, v->base + i); }
+static inline void rv_poke(RegView *v, uint32_t i, uint8_t x) { rtl_nbmem_poke(v->m, v->base + i, x); }
+static inline void rv_nb_wr(RegView *v, uint32_t i, uint8_t x) { rtl_nbmem_nb_wr(v->m, v->base + i, x); }
+static inline void rv_commit(RegView *v) { if (v->m == &v->own) rtl_nbmem_commit(&v->own); }   /* an alias is committed by its owner */
+static inline void rv_free(RegView *v) { rtl_nbmem_free(&v->own); }
+
 /* ---------------------------------------------------------------------------- */
 typedef struct Rom {
   Device   dev;
@@ -66,13 +77,31 @@ typedef struct Timer {
   RTL_REG(bool)     run;
   RTL_REG(bool)     flag;        /* interrupt request (level) */
   RTL_REG(uint8_t)  ctl;         /* status/control register as seen by the CPU */
-  RtlNbMem  date;
+  RegView   date;
   uint64_t  ticks;
   FILE     *sched;               /* lock-step schedule log ("T <iteration>") */
   const long *iter;
 } Timer;
 void timer_init(Timer *t, const McCpu *cpu, uint32_t period, bool aligned, bool fixed_time);
 static inline bool timer_irq_asserted(const Timer *t) { return t->flag.q; }
+
+/* ---------------------------------------------------------------------------- */
+/* Level 2 memory management (v09c / CoCo-GIME-like): 8 KiB blocks, two maps of 8 DAT bytes.
+ *   $FF91        task register: bit 0 = 0 system map ($FFA0-A7), 1 user map ($FFA8-AF)
+ *   $FFA0-$FFAF  DAT bytes: physical block number (2 MiB = 256 blocks)
+ * Translation is combinational on the bus address; $FE00-$FFFF (I/O page + fixed RAM) is never translated.
+ * regs[0..0x1f] mirror $FF90..$FFAF (mem bytes in v09c, so every byte reads back what was written). */
+#define MMU_IO_KEY 0x400000u        /* bus key of the untranslated I/O page: MMU_IO_KEY + cpu address */
+typedef struct Mmu {
+  Device    dev;
+  RtlModule mod;
+  RegView   regs;
+  RTL_REG(uint8_t) task;
+} Mmu;
+void     mmu_init(Mmu *m);
+uint32_t mmu_pa(const uint8_t *map8, uint16_t a);        /* map8: 8 DAT bytes; I/O page -> fixed RAM at 0x70000+a */
+static inline uint8_t mmu_dat(const Mmu *m, int task, int blk) { return rv_rd(&m->regs, 0x10 + task * 8 + blk); }
+uint32_t mmu_xlat(void *ctx, uint16_t a);                /* bus translation (ctx = Mmu*): key for the bus decoder */
 
 /* ---------------------------------------------------------------------------- */
 /* Disk controller register block ($E040..$E04F).  The data movers are host
@@ -82,37 +111,43 @@ typedef struct Vdisk Vdisk;
 typedef struct DiskCtl {
   Device    dev;
   RtlModule mod;
-  RtlNbMem  regs;                /* regs[0] = status/command, [1] = drive, [2..4] = LSN, [5,6] = buffer */
+  RegView   regs;                /* regs[0] = status/command, [1] = drive, [2..4] = LSN, [5,6] = buffer */
   uint64_t  reads, writes, errors;
   RtlNbMem *ram;
   uint32_t  ram_top;
   const Rom *rom;
   FILE     *disk[2];
   Vdisk    *vd;
+  const Mmu *mmu;                /* Level 2: DMA goes through the MMU */
+  uint8_t   pmmu[8];             /* DAT of the calling process (set by vdisk getDAT) */
 } DiskCtl;
+enum { SP_SYS, SP_PROC, SP_CUR };    /* address space of a DMA access: system map / caller's DAT / current task map */
 void    diskctl_init(DiskCtl *d, RtlNbMem *ram);
 void    diskctl_free(DiskCtl *d);
 bool    diskctl_attach(DiskCtl *d, int drive, const char *path);
-/* backdoor view of the 64K space: RAM below the ROM base, ROM above (the reference model keeps both in one array) */
-static inline uint8_t diskctl_peek(const DiskCtl *d, uint32_t a) {
-  a &= 0xFFFF;
-  return (a < d->ram_top || !d->rom) ? rtl_nbmem_rd(d->ram, a) : rom_peek(d->rom, (uint16_t)a);
-}
-static inline void diskctl_poke(DiskCtl *d, uint32_t a, uint8_t v) {
-  if ((a & 0xFFFF) < d->ram_top) rtl_nbmem_nb_wr(d->ram, a & 0xFFFF, v);
-}
-static inline uint8_t diskctl_reg(const DiskCtl *d, int i) { return rtl_nbmem_rd(&d->regs, i); }
-static inline void diskctl_set_status(DiskCtl *d, uint8_t v) { rtl_nbmem_nb_wr(&d->regs, 0, v); }
+/* backdoor view of memory.  Level 1: RAM below the ROM base, ROM above (the reference model keeps both in one array).
+ * Level 2: translated through the system map, the caller's DAT or the current task map. */
+uint8_t diskctl_rd_sp(const DiskCtl *d, int space, uint32_t a);
+void    diskctl_wr_sp(DiskCtl *d, int space, uint32_t a, uint8_t v);
+static inline uint8_t diskctl_peek(const DiskCtl *d, uint32_t a) { return diskctl_rd_sp(d, SP_SYS, a); }
+static inline void diskctl_poke(DiskCtl *d, uint32_t a, uint8_t v) { diskctl_wr_sp(d, SP_SYS, a, v); }
+static inline uint8_t diskctl_reg(const DiskCtl *d, int i) { return rv_rd(&d->regs, i); }
+static inline void diskctl_set_status(DiskCtl *d, uint8_t v) { rv_nb_wr(&d->regs, 0, v); }
 
 /* ---------------------------------------------------------------------------- */
 /* The I/O page: address decode inside $E000-$E1FF and the ROM-backed remainder. */
 typedef struct IoPage {
   Device    dev;
   RtlModule mod;
-  RtlNbMem  back;
-  Acia *acia; Timer *timer; DiskCtl *disk;
+  RtlNbMem  own;                 /* Level 1: private 512-byte page */
+  RtlNbMem *back;                /* backing bytes of the page: own, or (Level 2) the fixed RAM inside main memory */
+  uint32_t  bb;                  /* base of the page inside *back */
+  uint32_t  base;                /* register offset of the ACIA: 0 (Level 1, $E000) or 0x180 (Level 2, $FF80) */
+  Acia *acia; Timer *timer; DiskCtl *disk; Mmu *mmu;
 } IoPage;
 void iopage_init(IoPage *p, const uint8_t *rom_image, size_t rom_len, uint32_t rom_base, Acia *a, Timer *t, DiskCtl *d);
+/* Level 2: the page lives in `mem` at bb (= physical 0x7FE00); the ROM image has already been loaded there */
+void iopage_init_l2(IoPage *p, RtlNbMem *mem, uint32_t bb, Acia *a, Timer *t, Mmu *m, DiskCtl *d);
 void iopage_free(IoPage *p);
 
 #endif /* DEVICES_H */

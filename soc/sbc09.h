@@ -22,6 +22,7 @@ typedef struct {
   int32_t     rom_base;            /* -1: 0x10000 - size */
   const char *disk[2];             /* raw sector images for drives 0/1 (NULL: none) */
   const char *vdisk_root;          /* host directory for /v0 (NULL: none) */
+  bool        level2;              /* Level 2 board (v09c): MMU, 2 MiB RAM, I/O page at $FF80, ROM image at physical $7E000 */
   bool        timer_firq;          /* wire the timer to FIRQ instead of IRQ */
   uint32_t    tick_cycles;         /* E cycles per tick (default 1000000).  20000 = 50 Hz at 1 MHz, but this sbc09 OS-9
                                       guest then garbles its output (also seen on the original v09 with a fast timer) */
@@ -45,6 +46,7 @@ typedef struct Sbc09 {
   Rom      rom;
   Acia     acia;
   Timer    timer;
+  Mmu      mmu;                    /* Level 2 only */
   DiskCtl  disk;
   IoPage   io;
   Vdisk   *vdisk;

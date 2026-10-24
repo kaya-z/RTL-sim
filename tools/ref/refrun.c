@@ -26,6 +26,9 @@
 #include "v09.h"
 
 long romstart = 0x10000;
+#ifdef USE_MMU
+char *prog;     /* defined in v09.c in the real program; used by the disassembler/vdisk log */
+#endif
 int bpskip, stkskip;
 FILE *logfile_dummy;
 
@@ -135,7 +138,17 @@ int main(int argc, char **argv) {
     }
     fclose(f);
   }
+#ifdef USE_MMU
+  /* v09c memory model: 2 MiB of physical RAM, CPU view = block $38 upward, boot map has only block 7 ($3F) valid */
+  memsize = 512 * 1024 * 4;
+  phymem = calloc(memsize, 1);
+  rommemsize = memsize;
+  mem = phymem + 0x38 * 0x2000;
+  mmu = &mem[0xffa0];
+  romstart = memsize;
+#else
   memsize = 65536;
+#endif
   escchar = 0x1d;
   tracelo = 0; tracehi = 0xffff;
   tracing = 1; attention = 1;
@@ -153,8 +166,14 @@ int main(int argc, char **argv) {
     FILE *f = fopen(rom, "rb");
     if (!f) { perror(rom); return 2; }
     long len = fsize(f);
+#ifdef USE_MMU
+    if (fread(mem + 0xe000, 1, len, f) != (size_t)len) return 2;
+    mem[0xff90] = 0;
+    mem[0xffa7] = 0x3f;
+#else
     romstart = 0x10000 - len;
     if (fread(mem + romstart, 1, len, f) != (size_t)len) return 2;
+#endif
     fclose(f);
     in_path = in;
     { int g = 0, k; for (k = 0; k < nsched; k++) if (sched[k].kind == 'G') g = 1;
