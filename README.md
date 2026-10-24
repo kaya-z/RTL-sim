@@ -55,7 +55,7 @@ build/rtlsim -rom build/os9v1.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk
 build/rtlsim -2 -rom build/os9v2.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk -v build/os9l2
 ```
 
-Level 2 のコマンド群と **BASIC09** は `LEVEL=2 scripts/build_cmds.sh`（`build/os9l2/cmds` に出力。`setup_refs.sh` の後に実行）で作ります。実行ディレクトリは自動では設定されないので、起動後に `chx /v0/cmds` してから `basic09` を実行します（BASIC09 の `MEM`・`DIR` などの応答を確認済み。実物の `v09c` と出力が一致）。
+Level 2 のコマンド群と **BASIC09** は `LEVEL=2 scripts/build_cmds.sh`（`build/os9l2/cmds` に出力。`setup_refs.sh` の後に実行）で作ります。実行ディレクトリは自動では設定されないので、起動後に `chx /v0/cmds` してから `basic09` を実行します（`EDIT hello` で行番号付きプログラムを入力して `RUN hello` まで確認済み。実物の `v09c` と出力が一致。BASIC09 に直接式を打つと `What?` になるのは `v09c` でも同じ）。
 
 `v09c`（`-DUSE_MMU -DIOPAGE=0xff80`）のメモリモデルに合わせています。
 
