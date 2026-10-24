@@ -98,26 +98,41 @@ typedef struct RtlModule {
 typedef struct RtlSim {
   RtlModule *mods[RTL_MAX_MODULES];
   int        nmods;
+  RtlModule *on_edge[4][RTL_MAX_MODULES];     /* modules sensitive to each edge, in registration order */
+  int        n_on_edge[4];
   struct { void (*fn)(void *); void *ctx; } settle[RTL_MAX_HOOKS];
   int        nsettle;
-  struct { void (*fn)(void *, RtlEdge); void *ctx; } hooks[RTL_MAX_HOOKS];
+  struct { void (*fn)(void *, RtlEdge); void *ctx; unsigned mask; } hooks[RTL_MAX_HOOKS];
   int        nhooks;
+  unsigned   settle_edges;       /* edges after which the settle hooks run (default: all) */
   RtlClock   clk;
   RtlEdge    next;
 } RtlSim;
 
 static inline void rtl_sim_init(RtlSim *s) {
   s->nmods = s->nsettle = s->nhooks = 0;
+  for (int i = 0; i < 4; ++i) s->n_on_edge[i] = 0;
+  s->settle_edges = 0xF;
   s->clk.q = s->clk.e = false; s->clk.cycle = 0;
   s->next = RTL_QRISE;
 }
-static inline void rtl_sim_add(RtlSim *s, RtlModule *m) { s->mods[s->nmods++] = m; }
+static inline void rtl_sim_add(RtlSim *s, RtlModule *m) {      /* m->sens must be final */
+  s->mods[s->nmods++] = m;
+  for (int e = 0; e < 4; ++e)
+    if (m->sens & RTL_EDGE_BIT((RtlEdge)e)) s->on_edge[e][s->n_on_edge[e]++] = m;
+}
 static inline void rtl_sim_on_settle(RtlSim *s, void (*fn)(void *), void *ctx) {
   s->settle[s->nsettle].fn = fn; s->settle[s->nsettle].ctx = ctx; ++s->nsettle;
 }
-static inline void rtl_sim_on_edge_end(RtlSim *s, void (*fn)(void *, RtlEdge), void *ctx) {
-  s->hooks[s->nhooks].fn = fn; s->hooks[s->nhooks].ctx = ctx; ++s->nhooks;
+/* mask: RTL_EDGE_BIT set of the edges the hook wants to see */
+static inline void rtl_sim_on_edge_end_mask(RtlSim *s, void (*fn)(void *, RtlEdge), void *ctx, unsigned mask) {
+  s->hooks[s->nhooks].fn = fn; s->hooks[s->nhooks].ctx = ctx; s->hooks[s->nhooks].mask = mask; ++s->nhooks;
 }
+static inline void rtl_sim_on_edge_end(RtlSim *s, void (*fn)(void *, RtlEdge), void *ctx) {
+  rtl_sim_on_edge_end_mask(s, fn, ctx, 0xF);
+}
+/* Restrict the settle hooks to the edges after which a combinational input can have changed. */
+static inline void rtl_sim_settle_on(RtlSim *s, unsigned mask) { s->settle_edges = mask; }
 
 /* Advance exactly one clock edge. */
 static inline void rtl_sim_step_edge(RtlSim *s) {
@@ -130,14 +145,17 @@ static inline void rtl_sim_step_edge(RtlSim *s) {
   }
   const unsigned bit = RTL_EDGE_BIT(e);
   /* active region: everything sees pre-edge state */
-  for (int i = 0; i < s->nmods; ++i)
-    if (s->mods[i]->sens & bit) s->mods[i]->eval(s->mods[i]->self, e);
-  /* NBA region */
-  for (int i = 0; i < s->nmods; ++i) s->mods[i]->commit(s->mods[i]->self);
+  /* NBA region: only a module that ran its process can have pending assignments (d != q) */
+  RtlModule *const *run = s->on_edge[e];
+  const int n = s->n_on_edge[e];
+  for (int i = 0; i < n; ++i) run[i]->eval(run[i]->self, e);
+  for (int i = 0; i < n; ++i) run[i]->commit(run[i]->self);
   /* continuous assignments re-settle */
-  for (int i = 0; i < s->nsettle; ++i) s->settle[i].fn(s->settle[i].ctx);
+  if (s->settle_edges & bit)
+    for (int i = 0; i < s->nsettle; ++i) s->settle[i].fn(s->settle[i].ctx);
   if (e == RTL_EFALL) ++s->clk.cycle;
-  for (int i = 0; i < s->nhooks; ++i) s->hooks[i].fn(s->hooks[i].ctx, e);
+  for (int i = 0; i < s->nhooks; ++i)
+    if (s->hooks[i].mask & bit) s->hooks[i].fn(s->hooks[i].ctx, e);
   s->next = (RtlEdge)(((unsigned)e + 1) & 3);
 }
 

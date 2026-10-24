@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
   pr.iof = iof; pr.con = &con; pr.indelay = o.indelay; pr.released = true;
   if (o.indelay) { pr.released = false; con.hold = true; }
   if (iof) { sys->bus.log = iof; sys->bus.log_lo = o.cfg.level2 ? 0xFE00 : 0xE000; sys->bus.log_hi = o.cfg.level2 ? 0xFFFF : 0xE1FF; }
-  rtl_sim_on_edge_end(&sys->sim, probe_edge_end, &pr);
+  rtl_sim_on_edge_end_mask(&sys->sim, probe_edge_end, &pr, RTL_EDGE_BIT(RTL_EFALL));
 
   /* ---- waveform dump ---------------------------------------------------------------------------- */
   Vcd vcd; bool vcd_on = false;

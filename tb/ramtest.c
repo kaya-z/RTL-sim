@@ -79,7 +79,8 @@ int main(int argc, char **argv) {
   bus_map(&tb->bus, 0, 0xFFFF, &tb->ram.dev);
   rtl_sim_add(&tb->sim, &tb->cpu.mod); rtl_sim_add(&tb->sim, &tb->bus.mod); rtl_sim_add(&tb->sim, &tb->ram.mod);
   rtl_sim_on_settle(&tb->sim, tb_settle, tb);
-  rtl_sim_on_edge_end(&tb->sim, tb_edge_end, tb);
+  rtl_sim_settle_on(&tb->sim, RTL_EDGE_BIT(RTL_ERISE) | RTL_EDGE_BIT(RTL_EFALL));
+  rtl_sim_on_edge_end_mask(&tb->sim, tb_edge_end, tb, RTL_EDGE_BIT(RTL_EFALL));
 
   tb->nmax = n;
   tb->stop_on_ill = stop_ill;

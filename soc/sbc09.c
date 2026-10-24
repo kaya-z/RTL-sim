@@ -100,6 +100,7 @@ bool sbc09_init(Sbc09 *s, const Sbc09Config *cfg, Console *con) {
   if (cfg->level2) rtl_sim_add(&s->sim, &s->mmu.mod);
   rtl_sim_add(&s->sim, &s->disk.mod);
   rtl_sim_on_settle(&s->sim, sbc09_settle, s);
+  rtl_sim_settle_on(&s->sim, RTL_EDGE_BIT(RTL_ERISE) | RTL_EDGE_BIT(RTL_EFALL));   /* din changes at E rise; flags and the cycle count at E fall */
   sbc09_settle(s);
   s->ok = true;
   return true;

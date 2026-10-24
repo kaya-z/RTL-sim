@@ -57,7 +57,8 @@ static inline void flat_init(FlatSys *s) {
   bus_map(&s->bus, 0, 0xFFFF, &s->ram.dev);
   rtl_sim_add(&s->sim, &s->cpu.mod); rtl_sim_add(&s->sim, &s->bus.mod); rtl_sim_add(&s->sim, &s->ram.mod);
   rtl_sim_on_settle(&s->sim, flat_settle, s);
-  rtl_sim_on_edge_end(&s->sim, flat_edge_end, s);
+  rtl_sim_settle_on(&s->sim, RTL_EDGE_BIT(RTL_ERISE) | RTL_EDGE_BIT(RTL_EFALL));
+  rtl_sim_on_edge_end_mask(&s->sim, flat_edge_end, s, RTL_EDGE_BIT(RTL_EFALL));
   flat_settle(s);
 }
 static inline void flat_free(FlatSys *s) {
