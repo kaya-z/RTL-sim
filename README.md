@@ -75,6 +75,7 @@ Level 2 のコマンド群と **BASIC09** は `LEVEL=2 scripts/build_cmds.sh`（
 | テスト | 内容 | 結果 |
 |---|---|---|
 | `tests/run_lockstep.sh <seed> <n>` | ランダムな合法命令列を RTL と v09s で実行し、**命令ごとに pc/A/B/X/Y/U/S/DP/CC を比較**。サイクル数はデータシートモデルと比較 | 全シード一致（SYNC/不正命令に達した時点で打ち切り） |
+| `tests/alu_exhaustive.py`（`make check`） | ALU を v09s と**網羅比較**: 8 ビット二項演算 9 種 × 全オペランド対 × キャリー（A 形式）、単項演算・DAA・SEX × 全値 × CC 入力 6 ビット全通り、16 ビット演算（ADDD/SUBD/CMPD/CMPX/CMPY/CMPU/CMPS）は境界値 20 点の総当たり、MUL 全 65536 通り、ABX。DAA にバグを仕込んで検出されることも確認 | **187 万ケース、不一致 0** |
 | `build/test_cpu`（`make check-cpu`） | リセット列、IRQ/FIRQ/NMI/SWI/SWI2/SWI3 のスタックフレーム・ベクタ・19 サイクル、CWAI/SYNC/HALT、NMI のエッジ性と武装、DAA（BCD 100×100 全通り）、MUL（全 65536 通り） | 63 チェック合格 |
 | `LEVEL=2 tests/os9_lockstep.sh` | Level 2 ROM を RTL と `-DUSE_MMU` ビルドの engine.c（`refos9c`）で起動し、`dir /d0`・`mdir`・`dir /v0`・`dir /v0/cmds` を含めて比較 | **3000 万命令**・割り込み 155 回で一致。コンソール出力・ディスクも同一。実物の `v09c` とも `dir` 等の出力が一致（日時のみ異なる） |
 | `tests/os9_lockstep.sh` | OS-9 ROM を RTL と engine.c で起動し、タイマ割り込みの位置を RTL 側の記録から再生して命令ごとに比較。`/v0/dir`・`dir /d0`・`mdir`・`dir /d0/cmds` を含む | **3000 万命令**・割り込み 161 回で一致。コンソール出力とディスクイメージも同一 |

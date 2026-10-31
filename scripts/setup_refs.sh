@@ -34,7 +34,8 @@ SBC=$REFS/sbc09
     level1/pdisk level1/d0 level1/d1 level1/vrbf level1/v0 level1/clock level1/scf level1/rbf level1/init \
     level1/os9p2 level1/os9p1 >/dev/null )
 cp "$SBC/os9/os9v1.rom" "$B/os9v1.rom"
-# --- NitrOS-9 level 2 ROM (needs the level2 modules prebuilt in the checkout; skipped if they are missing)
+# --- NitrOS-9 level 2 modules + ROM (the Makefile's last target needs an unavailable shared object: ignore its error)
+( cd "$SBC/os9/level2" && make -k -s CFLAGS=-w >/dev/null 2>&1 || true )
 if ( cd "$SBC/os9" && ./make9rom -o os9v2.rom -2 level2/shell level2/dir level2/d1 level2/ioman level2/os9p3_perr \
       level2/os9p4_regdump level2/pipe level2/piper level2/pipeman level2/v0 level2/vrbf level2/scf level2/rbf \
       level2/os9p2 level2/sysgo level2/clock level2/pdisk level2/d0 level2/pty level2/term level2/init level2/boot \

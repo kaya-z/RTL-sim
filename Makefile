@@ -29,6 +29,7 @@ check-cpu: $(BUILD)/test_cpu
 SEEDS ?= 1 2 3 4 5
 check-ref: all
 	@for s in $(SEEDS); do tests/run_lockstep.sh $$s 20000 || exit 1; done
+	REF_BIN=$${REF_BIN:-$(CURDIR)/build/ref} python3 tests/alu_exhaustive.py
 
 # everything that can run without external ROM/disk images, plus the reference lock-step when available
 check: check-cpu
