@@ -12,6 +12,7 @@
  *   -trace f         instruction trace (pc a b x y u s dp cc) for lock-step comparison
  *   -sched f         write timer/IRQ schedule for the reference harness (implies -tick-aligned)
  *   -n N             stop after N traced instructions
+ *   -tickhz F        timer rate in Hz of simulated time (period = clock / F; wins over -tick)
  *   -tick N          timer period in E-cycles        -tick-aligned    deliver ticks between instructions only
  *   -fixed-time      deterministic RTC               -firq            timer on FIRQ
  *   -vcd f [-vcd-from N -vcd-cycles N]  waveform dump
@@ -33,6 +34,7 @@ typedef struct {
   uint64_t drain;
   uint64_t indelay;
   double clock_hz;               /* E clock; 0 = run as fast as possible (tests) */
+  double tick_hz;                /* -tickhz: timer rate in Hz of simulated time (0 = use the cycle count) */
   int esc;
   bool stats, term, novdisk;
 } Options;
@@ -119,6 +121,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "-sched")) { o.sched = ARG(); o.cfg.tick_aligned = true; }
     else if (!strcmp(argv[i], "-n")) o.nmax = strtol(ARG(), 0, 0);
     else if (!strcmp(argv[i], "-tick")) o.cfg.tick_cycles = (uint32_t)strtoul(ARG(), 0, 0);
+    else if (!strcmp(argv[i], "-tickhz")) o.tick_hz = strtod(ARG(), 0);
     else if (!strcmp(argv[i], "-tick-aligned")) o.cfg.tick_aligned = true;
     else if (!strcmp(argv[i], "-fixed-time")) o.cfg.fixed_time = true;
     else if (!strcmp(argv[i], "-firq")) o.cfg.timer_firq = true;
@@ -135,6 +138,11 @@ int main(int argc, char **argv) {
 #undef ARG
   }
   if (!o.cfg.rom || !o.cfg.rom[0]) usage();
+  if (o.tick_hz > 0) {      /* period in E cycles = E clock / rate (an unpaced -turbo run uses the nominal 2 MHz) */
+    const double base = o.clock_hz > 0 ? o.clock_hz : 2000000.0;
+    const double n = base / o.tick_hz + 0.5;
+    o.cfg.tick_cycles = n < 1 ? 1 : n > 4e9 ? 4000000000u : (uint32_t)n;
+  }
   if ((!o.cfg.vdisk_root || !o.cfg.vdisk_root[0]) && !o.novdisk) o.cfg.vdisk_root = ".";      /* like v09: /v0 = current directory */
 
   Console con;

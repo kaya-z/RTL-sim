@@ -18,7 +18,7 @@ build/rtlsim -rom build/os9v1.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk
 
 `-v dir` はホストのディレクトリを OS-9 の `/v0` に見せます（実行ディレクトリは `/v0/cmds`）。端末が TTY なら対話入力、`-in file` ならスクリプト入力です。終了は `Ctrl-]`（`-e` で変更）。
 
-主なオプション: `-2`（Level 2 ボード）`-clock Hz`（既定 2000000）`-turbo` `-rom -l -0 -1 -v -in -indelay N -cycles N -trace f -sched f -n N -tick N -fixed-time -firq -vcd f [-vcd-from N -vcd-cycles N] -iolog f -dumpram f -stats`。（`rtlsim` を引数なしで実行すると使い方が出ます。）
+主なオプション: `-2`（Level 2 ボード）`-clock Hz`（既定 2000000）`-turbo` `-rom -l -0 -1 -v -in -indelay N -cycles N -trace f -sched f -n N -tick N -tickhz F -fixed-time -firq -vcd f [-vcd-from N -vcd-cycles N] -iolog f -dumpram f -stats`。（`rtlsim` を引数なしで実行すると使い方が出ます。）
 
 ## RTL として何を再現しているか
 
@@ -81,7 +81,7 @@ Level 2 のコマンド群と **BASIC09** は `LEVEL=2 scripts/build_cmds.sh`（
 | `tests/os9_lockstep.sh` | OS-9 ROM を RTL と engine.c で起動し、タイマ割り込みの位置を RTL 側の記録から再生して命令ごとに比較。`/v0/dir`・`dir /d0`・`mdir`・`dir /d0/cmds` を含む | **3000 万命令**・割り込み 161 回で一致。コンソール出力とディスクイメージも同一 |
 
 ### 動作クロック
-`-clock Hz` で E クロックを指定します（既定 **2 MHz** = FM-11 EX の 68B09E 相当。FM-11 のメイン CPU は 2 MHz 駆動と記憶していますが、未確認です（知らんけど））。シミュレーション時間（サイクル数 ÷ クロック）をホストの `steady_clock` に 1 ms 刻みで同期させるので、**ホストが十分速ければ PC の性能に依存せず指定クロックで動作**します（この環境（クラウドコンテナ）では約 10 MHz 相当まで出せます）。ホストが遅い場合は追いつけず遅れます（`-stats` に遅れたスライス数を表示）。テストでは `-turbo`（`-clock 0`）で制限なしに実行します。タイマ周期は `-tick`（サイクル数、既定 1,000,000 = 2 MHz で 2 Hz）で別指定です。
+`-clock Hz` で E クロックを指定します（既定 **2 MHz** = FM-11 EX の 68B09E 相当。FM-11 のメイン CPU は 2 MHz 駆動と記憶していますが、未確認です（知らんけど））。シミュレーション時間（サイクル数 ÷ クロック）をホストの `steady_clock` に 1 ms 刻みで同期させるので、**ホストが十分速ければ PC の性能に依存せず指定クロックで動作**します（この環境（クラウドコンテナ）では約 10 MHz 相当まで出せます）。ホストが遅い場合は追いつけず遅れます（`-stats` に遅れたスライス数を表示）。テストでは `-turbo`（`-clock 0`）で制限なしに実行します。タイマ周期は `-tick`（サイクル数、既定 1,000,000 = 2 MHz で 2 Hz）か、`-tickhz F`（シミュレーション時間での周波数。周期 = `-clock` ÷ F。`-turbo` のときは 2 MHz を基準に換算）で別指定です。例: `-tickhz 50` = 40000 サイクル。ただし下記のとおり、50 Hz ではこの OS-9 ゲストの出力が化けます。
 
 ### 既知の注意点
 * **タイマ周期の既定は 1,000,000 E サイクル**（`-tick`）。1 MHz で実時間 50Hz にあたる `-tick 20000` では、この sbc09 向け OS-9 ゲストが出力を化けさせます（`pty-dd.arm` など）。**原本の v09 でタイマを速めても同じ現象**を確認しており、RTL の不具合ではなくゲストの割り込み頻度への競合です。
