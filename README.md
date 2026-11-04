@@ -1,24 +1,122 @@
-# RTL-sim — MC6809 RTL ベースシミュレーター（OS-9 Level 1 が動く）
+# RTL-sim — MC6809 RTL ベースシミュレーター
 
-Motorola MC6809E を、**命令単位の機能シミュレーションではなく RTL の流儀**（クロックエッジ・ノンブロッキング代入・バスサイクル単位）でモデル化した C11（C 言語）のシミュレーターです。sbc09（v09）互換のボード（ACIA／50Hz タイマ／ディスク）を載せ、**NitrOS-9 Level 1 が起動して `OS9:` プロンプトまで動作**します。
+Motorola MC6809E を、**命令単位の機能シミュレーションではなく RTL の流儀**（クロックエッジ・ノンブロッキング代入・バスサイクル単位）でモデル化した C11（C 言語）のシミュレーターです。sbc09（v09）互換のボード（ACIA／50Hz タイマ／ディスク）を載せ、**NitrOS-9 Level 1 / Level 2 が起動して `OS9:` プロンプトまで動作**し、BASIC09 も動きます。
 
-> 状態: **Level 1 と Level 2 の両方が起動します**（Level 2 は `-2`、sbc09 の `v09c` 相当の CoCo 風 MMU）。
+## ビルドと起動手順
 
-## クイックスタート
+ROM イメージ・ディスクイメージ・コマンド群は本リポジトリに含まれません（ライセンスの都合）。**sbc09 のソースを取得して生成する手順（手順 2・4）が必要**です。
+
+### 1. シミュレータのビルド
 
 ```sh
 make                        # build/rtlsim, build/ramtest, build/test_cpu
 make check-cpu              # 指向テスト（外部ファイル不要）
-make check                  # 上記＋（scripts/setup_refs.sh 済みなら）v09s とのランダム命令列ロックステップ
-scripts/setup_refs.sh       # sbc09 を clone して OS-9 ROM/ディスク/リファレンスをビルド（要ネットワーク）
+```
+
+### 2. ROM・ディスク・Level 1 コマンドの生成（要ネットワーク、約 10 秒）
+
+```sh
+scripts/setup_refs.sh
+```
+
+`refs/sbc09`（shinji-kono/sbc09）を clone し、a09 で NitrOS-9 をアセンブルして次を作ります。
+
+| 生成物 | 内容 |
+|---|---|
+| `build/os9v1.rom` | Level 1 の ROM イメージ |
+| `build/os9v2.rom` | **Level 2 の ROM イメージ**（`-2` で使う） |
+| `build/disks/OS9.dsk`, `WORK.dsk` | 256 バイト/セクタの生イメージ（`-0` / `-1`） |
+| `build/os9/cmds/` | Level 1 のコマンド群と BASIC09（`/v0/cmds` として見せる） |
+| `build/ref/` | 検証用の参照ハーネス（起動には不要） |
+
+終了時に **`build/os9v2.rom` が存在すること**を確認してください（`ls build/*.rom`）。`note: os9v2.rom not built` と出た場合は Level 2 のモジュールのビルドに失敗しています（`refs/sbc09/os9/level2` で `make -k` を実行してから `setup_refs.sh` をやり直す）。
+
+### 3. Level 1 の起動
+
+```sh
 build/rtlsim -rom build/os9v1.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk -v build/os9
 ```
 
-`setup_refs.sh` は `scripts/build_cmds.sh` も呼び、NitrOS-9 のコマンド群（`dir copy list edit procs …`）と **BASIC09**（`basic09` / `runb`）を a09 でアセンブルして `build/os9/cmds` に置きます。SysGo は実行ディレクトリを `/v0/cmds` にするので、`-v build/os9` を付ければ名前だけで実行できます（例: `basic09`、`edit hello` → `run hello`）。標準の `OS9.dsk` は Dragon 用で BASIC09 などを含みません。
+`OS9:` プロンプトが出れば起動完了です。`-v build/os9` は、ホストの `build/os9` ディレクトリを OS-9 の `/v0` に見せます。SysGo が実行ディレクトリを `/v0/cmds` にするので、コマンドは名前だけで実行できます（`dir`、`procs`、`basic09` など）。端末が TTY なら対話入力、`-in file` ならスクリプト入力です。**終了は `Ctrl-]`**（`-e` で変更）。
 
-`-v dir` はホストのディレクトリを OS-9 の `/v0` に見せます（実行ディレクトリは `/v0/cmds`）。端末が TTY なら対話入力、`-in file` ならスクリプト入力です。終了は `Ctrl-]`（`-e` で変更）。
+### 4. Level 2 の起動
 
-主なオプション: `-2`（Level 2 ボード）`-clock Hz`（既定 2000000）`-turbo` `-rom -l -0 -1 -v -in -indelay N -cycles N -trace f -sched f -n N -tick N -tickhz F -fixed-time -firq -vcd f [-vcd-from N -vcd-cycles N] -iolog f -dumpram f -stats`。（`rtlsim` を引数なしで実行すると使い方が出ます。）
+Level 2 では、コマンド群を Level 2 の定義で別にビルドします（`setup_refs.sh` の後）。
+
+```sh
+LEVEL=2 scripts/build_cmds.sh        # build/os9l2/cmds に出力（BASIC09 を含む）
+build/rtlsim -2 -rom build/os9v2.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk -v build/os9l2
+```
+
+`-2`（Level 2 ボード）・`build/os9v2.rom`・`-v build/os9l2` の 3 つがそろって初めて動きます。Level 1 の ROM に `-2` を付けたり、Level 2 の ROM を `-2` なしで起動したりしないでください。
+
+Level 2 では実行ディレクトリが自動設定されないため、起動後に最初に次を入力します。
+
+```
+OS9:chx /v0/cmds
+```
+
+### 5. BASIC09 の使い方
+
+```
+OS9:basic09                  ← BASIC09 が起動し B: プロンプトになる
+B:EDIT hello                 ← エディタ（E: プロンプト）。行番号付きで入力する
+E:10 FOR I=1 TO 3
+E:20 PRINT I*I
+E:30 NEXT I
+E:40 PRINT 6*7
+E:q                          ← エディタを終了
+B:RUN hello                  ← 1. 4. 9. 42 と表示される
+B:MEM                        ← 空きメモリ。DIR はプロシージャ一覧
+B:BYE                        ← OS9: に戻る
+```
+
+* B: プロンプトに式（`PRINT 6*7` など）を直接入力しても `What?` になります（BASIC09 の仕様で、実物の `v09c` でも同じ）。
+* 入力を一度に流し込む場合は `-in script.txt -indelay 30000000`（起動完了まで入力を保留）を使います。
+* Level 1・Level 2 とも `EDIT hello` → `RUN hello` まで動作確認済みです（Level 2 は実物の `v09c` と出力が一致）。
+* 標準の `OS9.dsk` は Dragon 用で BASIC09 などを含みません（`-v` のホストディレクトリから読みます）。
+
+### オプション
+
+`-2`（Level 2 ボード）`-clock Hz`（既定 2000000）`-turbo` `-rom -l -0 -1 -v -in -indelay N -cycles N -trace f -sched f -n N -tick N -tickhz F -fixed-time -firq -vcd f [-vcd-from N -vcd-cycles N] -iolog f -dumpram f -stats`。（`rtlsim` を引数なしで実行すると使い方が出ます。）
+
+## メモリマップ
+
+### I/O レジスタ（共通。基準アドレス: Level 1 は `$E000`、Level 2 は `$FF80`）
+
+| 基準からのオフセット | Level 1 | Level 2 | 内容 |
+|---|---|---|---|
+| `+$00` / `+$01` | `$E000` / `$E001` | `$FF80` / `$FF81` | ACIA 状態（bit0 受信あり、bit1 送信可）/ データ |
+| `+$10`〜`+$2F` | （なし） | `$FF90`〜`$FFAF` | MMU（`$FF91` タスク、`$FFA0–A7` システム DAT、`$FFA8–AF` ユーザ DAT）。`$FF90` は汎用 |
+| `+$30` | `$E030` | `$FFB0` | タイマ制御。書込み `$8F` 開始 / `$80` 停止 / `$04` 日時ラッチ。読出し bit4 = ティック |
+| `+$31`〜`+$36` | `$E031`〜 | `$FFB1`〜 | 日時 年(1900 からの経過)・月・日・時・分・秒 |
+| `+$40` | `$E040` | `$FFC0` | ディスク コマンド/状態。`$81` 読出し `$55` 書込み、`$D1`〜`$DD` は vdisk（/v0）。状態 `0`=正常 `$FF`=エラー |
+| `+$41`〜`+$44` | `$E041`〜 | `$FFC1`〜 | ドライブ番号、LSN（3 バイト）。vdisk では `+$44` がカレントディレクトリ番号 |
+| `+$45`〜`+$48` | `$E045`〜 | `$FFC5`〜 | バッファアドレス（`+$45/46`）。vdisk では呼び出しフレーム（`+$45/46`）とパス記述子（`+$47/48`） |
+
+### Level 1（64 KiB フラット。ROM は 16 KiB イメージなら `$C000` から）
+
+| CPU アドレス | 内容 |
+|---|---|
+| `$0000`〜ROM先頭−1 | RAM（既定 `$0000–$BFFF`） |
+| ROM先頭〜`$FFFF` | ROM（既定 `$C000–$FFFF`。書込みは無視。ベクタ `$FFF2–$FFFF`） |
+| `$E000`〜`$E1FF` | I/O ページ（ROM に重なる）。上表のレジスタ以外の読出しは ROM の中身、`$E050` 以降への書込みはページ内に保持される |
+
+### Level 2（CPU 64 KiB を MMU で 2 MiB の物理メモリに写像）
+
+CPU から見た 64 KiB は 8 KiB × 8 ブロックで、DAT の 1 バイトが物理ブロック番号（0〜255）です。
+
+| CPU アドレス | 内容 |
+|---|---|
+| `$0000`〜`$FDFF` | MMU で変換される領域（DAT 経由で物理 RAM へ） |
+| `$FE00`〜`$FF7F` | 固定 RAM（**変換されない**。物理 `$7FE00`〜に固定） |
+| `$FF80`〜`$FFFF` | I/O レジスタ（上表）と固定 RAM。`$FFF0–$FFFF` は割り込みベクタ（ROM イメージの内容） |
+
+| 物理アドレス | 内容 |
+|---|---|
+| `$000000`〜`$1FFFFF` | 2 MiB RAM（ROM も RAM。書込み保護なし） |
+| `$07E000`〜 | 起動時に ROM イメージ（`os9v2.rom`）を配置。リセット直後は システム DAT の第 7 ブロックだけが有効（`$3F`、物理 `$7E000`）で、他の 7 ブロックは物理ブロック 0 を指す |
+| `$07FE00`〜`$07FFFF` | 固定 RAM / I/O ページの実体（タイマ日時・ディスク・MMU レジスタのバイトもここ） |
 
 ## RTL として何を再現しているか
 
@@ -48,15 +146,10 @@ build/rtlsim -rom build/os9v1.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk
 | **sbc09 `engine.c / io.c / vdisk.c`**（shinji-kono/sbc09, OS-9 実行用） | I/O マップ（`$E000` ACIA、`$E030` タイマ/RTC、`$E040` ディスク）、pdisk のセクタ I/F、`/v0`（virtual RBF）コマンド・プロトコルとその癖。OS-9 起動の照合対象 |
 | Motorola MC6809E データシート | サイクル表（独立した Python モデル `tests/cycle_model.py` で検証） |
 
-メモリマップ（Level 1）: `$0000–ROM先頭-1` RAM、`ROM先頭–$FFFF` ROM（16KB イメージなら `$C000–`）、`$E000–$E1FF` I/O ページ（ROM に重なる。I/O レジスタ以外は ROM の中身が見える）。
 
-## Level 2（MMU, `-2`）
+## Level 2（MMU, `-2`）の実装
 
-```sh
-build/rtlsim -2 -rom build/os9v2.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk -v build/os9l2
-```
-
-Level 2 のコマンド群と **BASIC09** は `LEVEL=2 scripts/build_cmds.sh`（`build/os9l2/cmds` に出力。`setup_refs.sh` の後に実行）で作ります。実行ディレクトリは自動では設定されないので、起動後に `chx /v0/cmds` してから `basic09` を実行します（`EDIT hello` で行番号付きプログラムを入力して `RUN hello` まで確認済み。実物の `v09c` と出力が一致。BASIC09 に直接式を打つと `What?` になるのは `v09c` でも同じ）。
+（起動手順は上の「ビルドと起動手順」を参照）
 
 `v09c`（`-DUSE_MMU -DIOPAGE=0xff80`）のメモリモデルに合わせています。
 
@@ -81,7 +174,7 @@ Level 2 のコマンド群と **BASIC09** は `LEVEL=2 scripts/build_cmds.sh`（
 | `tests/os9_lockstep.sh` | OS-9 ROM を RTL と engine.c で起動し、タイマ割り込みの位置を RTL 側の記録から再生して命令ごとに比較。`/v0/dir`・`dir /d0`・`mdir`・`dir /d0/cmds` を含む | **3000 万命令**・割り込み 161 回で一致。コンソール出力とディスクイメージも同一 |
 
 ### 動作クロック
-`-clock Hz` で E クロックを指定します（既定 **2 MHz** = FM-11 EX の MBL 68B09E の定格。[Wikipedia: FM-11](https://en.wikipedia.org/wiki/FM-11) と [IPSJ コンピュータ博物館](https://museum.ipsj.or.jp/en/computer/personal/0008.html) で確認。FM-11 EX は 8088 8 MHz と 6809 2 MHz を切り替えて使う構成。68B09**E** の 2 MHz は外部クロック E（バスサイクル）の周波数で、`-clock` も E クロック）。シミュレーション時間（サイクル数 ÷ クロック）をホストの `steady_clock` に 1 ms 刻みで同期させるので、**ホストが十分速ければ PC の性能に依存せず指定クロックで動作**します（この環境（クラウドコンテナ）では約 10 MHz 相当まで出せます）。ホストが遅い場合は追いつけず遅れます（`-stats` に遅れたスライス数を表示）。テストでは `-turbo`（`-clock 0`）で制限なしに実行します。タイマ周期は `-tick`（サイクル数、既定 1,000,000 = 2 MHz で 2 Hz）か、`-tickhz F`（シミュレーション時間での周波数。周期 = `-clock` ÷ F。`-turbo` のときは 2 MHz を基準に換算）で別指定です。例: `-tickhz 50` = 40000 サイクル。ただし下記のとおり、50 Hz ではこの OS-9 ゲストの出力が化けます。
+`-clock Hz` で E クロックを指定します（既定 **2 MHz**。68B09**E** の 2 MHz は外部クロック E = バスサイクルの周波数で、`-clock` も E クロック）。シミュレーション時間（サイクル数 ÷ クロック）をホストの `steady_clock` に 1 ms 刻みで同期させるので、**ホストが十分速ければ PC の性能に依存せず指定クロックで動作**します（この環境（クラウドコンテナ）では約 10 MHz 相当まで出せます）。ホストが遅い場合は追いつけず遅れます（`-stats` に遅れたスライス数を表示）。テストでは `-turbo`（`-clock 0`）で制限なしに実行します。タイマ周期は `-tick`（サイクル数、既定 1,000,000 = 2 MHz で 2 Hz）か、`-tickhz F`（シミュレーション時間での周波数。周期 = `-clock` ÷ F。`-turbo` のときは 2 MHz を基準に換算）で別指定です。例: `-tickhz 50` = 40000 サイクル。ただし下記のとおり、50 Hz ではこの OS-9 ゲストの出力が化けます。
 
 ### 既知の注意点
 * **タイマ周期の既定は 1,000,000 E サイクル**（`-tick`）。1 MHz で実時間 50Hz にあたる `-tick 20000` では、この sbc09 向け OS-9 ゲストが出力を化けさせます（`pty-dd.arm` など）。**原本の v09 でタイマを速めても同じ現象**を確認しており、RTL の不具合ではなくゲストの割り込み頻度への競合です。

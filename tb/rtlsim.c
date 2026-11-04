@@ -6,7 +6,7 @@
  *   -2               Level 2 board (v09c): MMU, 2 MiB RAM, I/O page at $FF80, ROM image loaded at physical $7E000
  *   -rom f  -l addr  -0 f  -1 f  -v dir  -e escchar
  *   -in f            keystrokes from a script file (LF -> CR)   -indelay N  hold them back for N E-cycles
- *   -clock Hz        E-clock frequency the machine is paced to in real time (default 2000000 = FM-11 EX class 68B09E);
+ *   -clock Hz        E-clock frequency the machine is paced to in real time (default 2000000);
  *                    -clock 0 / -turbo runs unpaced (tests).  A host slower than the clock simply falls behind.
  *   -cycles N        stop after N E-cycles           -drain N   run N more cycles after the script ends
  *   -trace f         instruction trace (pc a b x y u s dp cc) for lock-step comparison
