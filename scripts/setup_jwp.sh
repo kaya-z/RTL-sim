@@ -21,6 +21,19 @@ fi
 O=$SIM/os9
 for f in os9v1.rom os9v2.rom OS9.dsk OS9L2.dsk WORK.dsk; do cp "$O/$f" "$OUT/$f"; done
 for f in jwp jwp-l2; do [ -f "$O/jwp/$f" ] && cp "$O/jwp/$f" "$OUT/$f"; done      # the same modules, for use through -v
+# do the images contain the programs?  (a stale clone/disk from before Pascal was added to sim09 has no `pc`)
+python3 - "$OUT" "$O" <<'PY'
+import os, sys
+out, o = sys.argv[1], sys.argv[2]
+for disk, prog in (("OS9.dsk", "level1/cmds/ysdbasic"), ("OS9L2.dsk", "level2/cmds/ysdbasic"), ("OS9L2.dsk", "pascal/pas1"), ("OS9L2.dsk", "pascal/cg")):
+    src = os.path.join(o, prog)
+    if not os.path.exists(src):
+        print(f"  WARNING: {prog} is not in the sim09 clone - update refs/sim09 and run this script again", file=sys.stderr); continue
+    head = open(src, "rb").read()[:64]
+    ok = head in open(os.path.join(out, disk), "rb").read()
+    print(f"  {disk}: {os.path.basename(prog)} {'ok' if ok else 'MISSING'}")
+    if not ok: print(f"  WARNING: {disk} does not contain {os.path.basename(prog)} - update refs/sim09 (git -C refs/sim09 log -1) and run this script again", file=sys.stderr)
+PY
 JISYO=${SKKJISYO:-/usr/share/skk/SKK-JISYO.L}
 if [ -f "$JISYO" ]; then
   make -C "$O/skk" SKKJISYO="$JISYO" SKK_utf8.dsk >/dev/null
