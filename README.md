@@ -79,6 +79,39 @@ B:BYE                        ← OS9: に戻る
 * Level 1・Level 2 とも `EDIT hello` → `RUN hello` まで動作確認済みです（Level 2 は実物の `v09c` と出力が一致）。
 * 標準の `OS9.dsk` は Dragon 用で BASIC09 などを含みません（`-v` のホストディレクトリから読みます）。
 
+### 6. 日本語ワードプロセッサ jwp（BASIC09 以外のアプリ）
+
+[kaya-z/sim09](https://github.com/kaya-z/sim09) の OS-9 用全画面ワープロ **`jwp`**（禁則つき自動折り返し、文字単位の編集、検索、整形出力、SKK 方式のかな漢字変換。Level 1 / 2 対応）が動きます。`jwp` は日本語対応に改造した SCF（`kmode` コマンドで文字コードを指定）を前提にするため、sim09 の **ROM とディスクをそのまま使います**。
+
+```sh
+scripts/setup_jwp.sh        # refs/sim09 を取得し、build/jwp/ に ROM・ディスクを置く（要ネットワーク）
+sudo apt install skkdic     # かな漢字変換の辞書（SKK-JISYO.L）。入れてから上を再実行すると SKK_utf8.dsk ができる
+
+# Level 1
+build/rtlsim -rom build/jwp/os9v1.rom -0 build/jwp/OS9.dsk -1 build/jwp/SKK_utf8.dsk
+# Level 2
+build/rtlsim -2 -rom build/jwp/os9v2.rom -0 build/jwp/OS9L2.dsk -1 build/jwp/SKK_utf8.dsk
+```
+
+* ROM は `build/jwp/` のもの（`kmode` の既定は UTF-8）を使ってください。本リポジトリで作った `build/os9v1.rom` / `os9v2.rom`（標準の SCF）では `jwp` は 1 バイト文字モードになり、日本語の編集と変換は使えません。
+* `-v` なしで起動したら、最初に `chx /d0/cmds` を入力します（実行ディレクトリの既定が `/v0/cmds` のため）。
+* 辞書ディスクは `/d1` に見え、`jwp` が既定で `/d1/skk.dic`（辞書）と `/d1/skkuser.dic`（学習結果）を使います。辞書が無くても編集はできます（`-1 build/jwp/WORK.dsk`）。**ディスクイメージは書き換わる**ので、残したくなければコピーを使ってください。
+* 端末は **UTF-8 の ANSI（VT100 系）端末**で、80×24 以上にしてください。日本語は端末の IME で入力するか、`^J` でかなモードにして SKK で入力します。
+
+```
+OS9:chx /d0/cmds
+OS9:jwp /d0/memo.txt         ファイルを開く（なければ新規）
+  ^J                         かなモード（ローマ字 → ひらがな。l で英数に戻る）
+  Kanji<Space>               ▽かんじ → 変換 ▼漢字 → Enter で確定
+  ^S 保存  ^Q 終了  ^R 検索  ^X 整形出力
+OS9:list /d0/memo.txt
+```
+
+* 例: `Nihongo` + Space → 日本語（Level 1・Level 2 とも `漢字`・`日本語` への変換と保存を確認）。
+* 使い方の詳細（キー一覧・禁則処理・辞書の作り方）は sim09 の `docs/JWP.md` にあります。
+* `-in script.txt` で流し込む場合、改行コード LF（`^J`）は CR に変換されるため、かなモードの `^J` は送れません。スクリプトで変換を試すときは、標準入力から流してください（例: `(sleep 16; printf 'chx /d0/cmds\r'; …; printf '\nKanji ') | build/rtlsim …`）。
+* 文書サイズの上限は Level 1 が約 9000 バイト、Level 2 が約 26000 バイト（空き RAM による）。
+
 ### オプション
 
 `-2`（Level 2 ボード）`-clock Hz`（既定 2000000）`-turbo` `-rom -l -0 -1 -v -in -indelay N -cycles N -trace f -sched f -n N -tick N -tickhz F -fixed-time -firq -vcd f [-vcd-from N -vcd-cycles N] -iolog f -dumpram f -stats`。（`rtlsim` を引数なしで実行すると使い方が出ます。）
