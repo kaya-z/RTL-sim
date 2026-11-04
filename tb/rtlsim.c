@@ -17,6 +17,7 @@
  *   -fixed-time      deterministic RTC               -firq            timer on FIRQ
  *   -vcd f [-vcd-from N -vcd-cycles N]  waveform dump
  *   -iolog f         log every bus access to the I/O page      -dumpram f  write the 64K RAM image at exit
+ *                    (OS-9 `shutdown` writes $A5 to the power control register at I/O base+$0F: the run ends)
  *   -until text      stop as soon as the guest output contains `text` (prints the E-cycle count; for benchmarks)
  *   -stats           print statistics on exit */
 #include <stdio.h>
@@ -202,7 +203,7 @@ int main(int argc, char **argv) {
    * so the speed does not depend on how fast the host is (as long as it is fast enough) */
   const uint64_t slice = o.clock_hz > 0 ? (uint64_t)(o.clock_hz / 1000) + 1 : 0;
   uint64_t lag_slices = 0, nslices = 0;
-  while (!pr.stop && !con.quit && !con.until_hit) {
+  while (!pr.stop && !con.quit && !con.until_hit && !sys->io.power_off) {
     sbc09_step_cycle(sys);
     if (slice && sbc09_cycles(sys) % slice == 0) {
       ++nslices;
@@ -215,6 +216,7 @@ int main(int argc, char **argv) {
       else if (sbc09_cycles(sys) >= pr.drain_until) break;
     }
   }
+  if (sys->io.power_off) fprintf(stderr, "\n[rtlsim] power off (shutdown) at E-cycle %llu\n", (unsigned long long)sbc09_cycles(sys));
   if (con.until_hit) fprintf(stderr, "\n[rtlsim] -until matched at E-cycle %llu (%ld instructions)\n", (unsigned long long)sbc09_cycles(sys), iter);
   if (vcd_on) vcd_close(&vcd);
   if (tf) fclose(tf);

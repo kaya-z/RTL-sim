@@ -144,6 +144,7 @@ typedef struct IoPage {
   uint32_t  bb;                  /* base of the page inside *back */
   uint32_t  base;                /* register offset of the ACIA: 0 (Level 1, $E000) or 0x180 (Level 2, $FF80) */
   Acia *acia; Timer *timer; DiskCtl *disk; Mmu *mmu;
+  bool      power_off;           /* power control register (base+$0F) written with $A5 (OS-9 `shutdown`) */
 } IoPage;
 void iopage_init(IoPage *p, const uint8_t *rom_image, size_t rom_len, uint32_t rom_base, Acia *a, Timer *t, DiskCtl *d);
 /* Level 2: the page lives in `mem` at bb (= physical 0x7FE00); the ROM image has already been loaded there */

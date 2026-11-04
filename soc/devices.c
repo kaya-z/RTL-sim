@@ -244,6 +244,7 @@ static void iopage_eval(void *self, RtlEdge e) {
   uint16_t off = 0;
   Device *d = io_decode(p, p->dev.sa, &off);
   const uint32_t o = p->dev.sa & 0x1FF;
+  if (p->dev.wr_en && o == p->base + 0x0F && p->dev.wdata == 0xA5) p->power_off = true;     /* power control: $A5 = power off */
   if (d) { d->wr_en = p->dev.wr_en; d->rd_en = p->dev.rd_en; d->sa = off; d->wdata = p->dev.wdata; }
   else if (p->dev.wr_en) {
     if (p->mmu) rtl_nbmem_nb_wr(p->back, p->bb + o, p->dev.wdata);     /* Level 2: fixed RAM */
