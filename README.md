@@ -14,6 +14,15 @@ Motorola MC6809E を、**命令単位の機能シミュレーションではな�
 | ベンチマーク | **Dhrystone**（`dhry`） | ○ | ○ |
 | 終了 | `shutdown`（電源制御レジスタ） | ○ | ○ |
 
+**どのアプリも、使う前に準備（ROM・ディスクの生成）が必要です。** アプリによって準備と起動コマンドが違います。
+
+| 使いたいもの | 必要な準備（初回に 1 回） | 起動に使う ROM・ディスク |
+|---|---|---|
+| OS-9 だけ / BASIC09 | `scripts/setup_refs.sh`（Level 2 は続けて `LEVEL=2 scripts/build_cmds.sh`） | `build/os9v1.rom` + `build/disks/OS9.dsk`（Level 2 は `build/os9v2.rom`、`-2`） |
+| **jwp / Pascal（`pc`）/ ysdbasic / dhry** | **`scripts/setup_jwp.sh`**（上の準備の後。かな漢字変換を使うなら先に `sudo apt install skkdic`） | **`build/jwp/os9v1.rom` + `build/jwp/OS9.dsk`**（Level 2 は `build/jwp/os9v2.rom` + `build/jwp/OS9L2.dsk`、`-2`） |
+
+`pc` が見つからないなどのときは、まず `scripts/setup_jwp.sh` を実行したか、`build/jwp/` のディスクで起動しているかを確認してください。
+
 Pascal や jwp で「ソースを書く → コンパイルする → 実行する」まで、このシミュレータの中だけで完結します（手順は「アプリケーションの使い方」）。
 
 ## ビルドと起動手順
@@ -102,6 +111,8 @@ build/rtlsim -2 -rom build/jwp/os9v2.rom -0 build/jwp/OS9L2.dsk -1 build/jwp/SKK
 
 ## アプリケーションの使い方
 
+> **前提**: 以下のうち、`jwp`・`pc`（Pascal）・`ysdbasic`・`dhry` は **`scripts/setup_jwp.sh` を実行してから**、`build/jwp/` の ROM・ディスクで起動したときに使えます（手順 5）。`basic09` は手順 2・4 の準備（`build/os9`・`build/os9l2`）で使えます。起動に使うコマンドの例は手順 5 にあります。
+
 起動したら最初に、使うコマンドのあるディレクトリを実行ディレクトリにします（既定は `/v0/cmds`）。
 
 ```
@@ -132,6 +143,8 @@ OS9:chx /v0/cmds        basic09 / runb はこちら（-v を付けたとき）
 `OS9.dsk` は `/d0`、`WORK.dsk` や辞書ディスクは `/d1`、ホストのディレクトリは `/v0` です。
 
 ### jwp（エディタとして使う）
+
+> **前提**: `scripts/setup_jwp.sh` 実行済みで、`build/jwp/` の ROM・ディスクで起動していること（手順 5）。Level 1・Level 2 とも可。
 
 `jwp` は日本語ワープロですが、**OS-9 の汎用テキストエディタ**としても使えます。OS-9 には行エディタの `edit` しか無く、全画面で編集できるものはこれだけです。OS-9 のテキストファイルは行末が CR で、`jwp` は改行形式（CR / LF / CRLF）を自動判定して、同じ形式で書き戻します。
 
@@ -170,6 +183,8 @@ OS9:copy /d1/hello.bas /d1/copy.bas
 
 ### BASIC09
 
+> **前提**: `scripts/setup_refs.sh`（Level 2 は続けて `LEVEL=2 scripts/build_cmds.sh`）実行済みで、`-v build/os9`（Level 2 は `-v build/os9l2`）を付けて起動していること。コマンドは `/v0/cmds` にあります（`chx /v0/cmds`）。
+
 ```
 OS9:chx /v0/cmds
 OS9:basic09                  ← B: プロンプトになる
@@ -191,6 +206,8 @@ B:BYE                        ← OS9: に戻る
 
 ### YSD BASIC（`ysdbasic`）
 
+> **前提**: `scripts/setup_jwp.sh` 実行済みで、`build/jwp/` の ROM・ディスクで起動していること（手順 5）。Level 1・Level 2 とも可。
+
 行番号つきの小さな BASIC（1980 年代の Microsoft 系 BASIC に近い。BASIC09 とは別物。32 ビット浮動小数点をソフトウェアで計算）です。プログラムは `jwp` で書いても、その場で打ってもかまいません。
 
 ```
@@ -208,6 +225,8 @@ OS9:ysdbasic /d1/t.bas                ファイルを読み込んで実行し、
 Level 1・Level 2 とも、上の例が sim09 の文書どおりの出力になることを確認しました（空き領域は Level 1 が 3600 バイト、Level 2 が 12000 バイト）。
 
 ### Pascal（`pc`、Level 2 のみ）
+
+> **前提**: **`scripts/setup_jwp.sh` 実行済み**で、**Level 2**（`-2 -rom build/jwp/os9v2.rom -0 build/jwp/OS9L2.dsk`）で起動していること。`build/os9v2.rom`（`setup_refs.sh` が作る ROM）や Level 1 のディスクには `pc` が入っていません。
 
 [sim09](https://github.com/kaya-z/sim09) に入っている MK09 の **Pascal コンパイラ**の OS-9 版です。`pc` が `pas0`（字句解析）→ `pas1`（構文解析）→ `cg`（6809 のコード生成）→ `as`（アセンブラ）を順に動かして、**OS-9 のモジュール（普通に実行できるコマンド）**を作ります。標準 Pascal の中核に、Turbo Pascal の `string`・`real`・`longint`・`set`・ファイル・`uses`・`crt` の一部を足した言語です。コンパイラが 64 KiB の空間をほぼ使うため **Level 1 では動きません**（Level 2 の `OS9L2.dsk` に入っています）。
 
@@ -250,6 +269,8 @@ OS9:sq                           → 1 squared = 1 … 5 squared = 25
 * 実行ディレクトリが `/d0/PAS` のままだと `shutdown` が見つからず `Error #216` になります。`chx /d0/cmds` に戻してから実行してください。
 
 ### Dhrystone（`dhry`）
+
+> **前提**: `scripts/setup_jwp.sh` 実行済みで、`build/jwp/` の ROM・ディスクで起動していること（手順 5）。
 
 ```
 OS9:chx /d0/cmds
