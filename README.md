@@ -266,6 +266,7 @@ OS9:sq                           → 1 squared = 1 … 5 squared = 25
   2. **`chx /d0/cmds`** を入力したか（既定の実行ディレクトリは `/v0/cmds`）。`dir /d0/cmds` に `pc` `pas0` `pas1` `cg` `as` が並んでいれば、ディスクには入っています。
   3. **ディスクが古くないか**: Pascal は sim09 に後から追加されました。`scripts/setup_jwp.sh` を実行し直してください（`refs/sim09` を最新に更新し、`build/jwp/` の ROM・ディスクを置き直します。末尾に `OS9L2.dsk: pas1 ok` などと出れば入っています。`MISSING` / `WARNING` が出たら古いままです）。**ディスクイメージは上書きされる**ので、作ったファイルを残したいときは先に取り出してください。
   4. `-v` で別のディレクトリを `/v0` にしていても、`pc` は `/d0/cmds` にあります（`/v0/cmds` ではありません）。
+* **Dragon Data 版 Pascal 2.0（NitrOS-9 の `3rdparty/packages/pascal`）は未対応**です（調査メモ）。ビルド済みバイナリは無く、逆アセンブルのソースと P-code のファイルだけが入っています。6309 対応の `lwasm`（LWTOOLS 4.25）で、未定義ラベル（ラベル名がモジュール内アドレスなので同値の `equ` で補える）と `pshu` のレジスタ表記（bit 6 は S）を直すと全 9 モジュールがアセンブルでき、ラベルのアドレスも全て一致します。しかし `CRCLIST` と CRC が一致したのは `Rename` と `PascalT.MODL` の 2 つだけで、`pascaln.asm`・`pascals.asm` には逆アセンブラが値を出せなかった箇所（`[?????]`、計 8 か所）があり、元のバイト列を復元できません。`Pascal` モジュールは P-code の実行系で、コンパイラ本体は P-code ファイル（`Pascal_Compiler`）ですが、これを起動する手順（ランタイムの呼び出し規約）の資料もなく、`Pascal` を起動すると `Pascal Error #203` になるところで止まっています。動く Pascal は上の `pc` を使ってください。
 * 実行ディレクトリが `/d0/PAS` のままだと `shutdown` が見つからず `Error #216` になります。`chx /d0/cmds` に戻してから実行してください。
 
 ### Dhrystone（`dhry`）
