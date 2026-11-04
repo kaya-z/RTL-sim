@@ -48,6 +48,8 @@ LEVEL=2 scripts/build_cmds.sh        # build/os9l2/cmds に出力（BASIC09 を�
 build/rtlsim -2 -rom build/os9v2.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk -v build/os9l2
 ```
 
+`build_cmds.sh` の最後に出る `not assembled: …` は、CoCo のグラフィックドライバ・SCSI・フォーマットなどハードウェア依存のソースで、**エラーではありません**（不要）。最終行の `essential programs: … basic09:ok runb:ok …` がすべて `ok` ならコマンド群は揃っています。
+
 `-2`（Level 2 ボード）・`build/os9v2.rom`・`-v build/os9l2` の 3 つがそろって初めて動きます。Level 1 の ROM に `-2` を付けたり、Level 2 の ROM を `-2` なしで起動したりしないでください。
 
 Level 2 では実行ディレクトリが自動設定されないため、起動後に最初に次を入力します。
