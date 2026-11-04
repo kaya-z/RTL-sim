@@ -27,19 +27,9 @@ SBC=$REFS/sbc09
 ( cd "$SBC/src" && cc -w -O1 -DTERM_CONTROL -DUSE_TERMIOS -DBIG_ENDIAN -o a09 a09.c os9crc.c )
 ( cd "$SBC/os9" && cc -w -o make9rom makerom.c && cc -w -o os9mod crc.c os9mod.c )
 
-# --- NitrOS-9 level 1 modules (the level1/Makefile also wants `hg` and host cmds; only the modules are needed)
-( cd "$SBC/os9" && make -k -s CFLAGS=-w level1/init >/dev/null 2>&1 || true )
-( cd "$SBC/os9/level1" && make -k -s CFLAGS=-w pdisk init os9p1 os9p2 ioman pipe piper rbf scf term pty d0 d1 vrbf v0 clock shell dir mdir sysgo >/dev/null 2>&1 || true )
-( cd "$SBC/os9" && ./make9rom -o os9v1.rom level1/shell level1/sysgo level1/ioman level1/term level1/pty \
-    level1/pdisk level1/d0 level1/d1 level1/vrbf level1/v0 level1/clock level1/scf level1/rbf level1/init \
-    level1/os9p2 level1/os9p1 >/dev/null )
-cp "$SBC/os9/os9v1.rom" "$B/os9v1.rom"
-# --- NitrOS-9 level 2 modules + ROM (the Makefile's last target needs an unavailable shared object: ignore its error)
-( cd "$SBC/os9/level2" && make -k -s CFLAGS=-w >/dev/null 2>&1 || true )
-if ( cd "$SBC/os9" && ./make9rom -o os9v2.rom -2 level2/shell level2/dir level2/d1 level2/ioman level2/os9p3_perr \
-      level2/os9p4_regdump level2/pipe level2/piper level2/pipeman level2/v0 level2/vrbf level2/scf level2/rbf \
-      level2/os9p2 level2/sysgo level2/clock level2/pdisk level2/d0 level2/pty level2/term level2/init level2/boot \
-      level2/os9p1 >/dev/null 2>&1 ); then cp "$SBC/os9/os9v2.rom" "$B/os9v2.rom"; else echo "note: os9v2.rom not built (level2 modules missing)"; fi
+# --- boot ROMs (Level 1 and Level 2); build_rom.sh prints the reason if one cannot be built
+"$HERE/scripts/build_rom.sh" 1
+"$HERE/scripts/build_rom.sh" 2
 cp "$SBC/os9/OS9.dsk" "$SBC/os9/WORK.dsk" "$B/disks/"
 # --- commands and BASIC09 for /v0/cmds ------------------------------------------------------------
 "$HERE/scripts/build_cmds.sh" "$B/os9" </dev/null

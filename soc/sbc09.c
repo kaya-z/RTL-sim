@@ -44,7 +44,7 @@ bool sbc09_init(Sbc09 *s, const Sbc09Config *cfg, Console *con) {
 
   size_t len = 0;
   uint8_t *img = slurp(cfg->rom, &len);
-  if (!img) { fprintf(stderr, "sbc09: cannot read ROM image '%s'\n", cfg->rom); return false; }
+  if (!img) { fprintf(stderr, "sbc09: cannot read ROM image '%s' (generate it with scripts/setup_refs.sh, or scripts/build_rom.sh 1|2)\n", cfg->rom); return false; }
   if (cfg->level2) {
     /* v09c: the image is loaded at CPU $E000 of the boot map = physical $7E000 and may run on into higher blocks;
      * the top 512 bytes of block $3F are the fixed RAM / I/O page */

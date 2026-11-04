@@ -29,7 +29,7 @@ scripts/setup_refs.sh
 | `build/os9/cmds/` | Level 1 のコマンド群と BASIC09（`/v0/cmds` として見せる） |
 | `build/ref/` | 検証用の参照ハーネス（起動には不要） |
 
-終了時に **`build/os9v2.rom` が存在すること**を確認してください（`ls build/*.rom`）。`note: os9v2.rom not built` と出た場合は Level 2 のモジュールのビルドに失敗しています（`refs/sbc09/os9/level2` で `make -k` を実行してから `setup_refs.sh` をやり直す）。
+終了時に **`build/os9v1.rom` と `build/os9v2.rom` が存在すること**を確認してください（`ls build/*.rom`）。ROM は `scripts/build_rom.sh 1|2` が作ります（`setup_refs.sh` が呼びます。単独でも実行でき、失敗時は理由を表示し、a09 のログは `build/rom_modules.log`、リンクのログは `build/rom_link.log` に残ります）。`cannot read ROM image 'build/os9v2.rom'` と出る場合は、`scripts/build_rom.sh 2` を実行してください。以前の版の `setup_refs.sh` で作った `refs/` が残っている場合も、これで ROM が作られます（`LEVEL=2 scripts/build_cmds.sh` は Level 2 の ROM が無ければ自動で作ります）。
 
 ### 3. Level 1 の起動
 

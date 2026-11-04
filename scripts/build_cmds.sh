@@ -11,6 +11,8 @@ if [ "$LEVEL" = 2 ]; then OUT=${1:-$HERE/build/os9l2}; else OUT=${1:-$HERE/build
 S=$SBC/os9/nitros9-code
 A=$SBC/src/a09
 [ -x "$A" ] || { echo "a09 not built: run scripts/setup_refs.sh first" >&2; exit 1; }
+# a Level 2 setup needs the Level 2 ROM too: build it here if an older setup_refs.sh run did not
+[ "$LEVEL" = 2 ] && [ ! -s "$HERE/build/os9v2.rom" ] && "$HERE/scripts/build_rom.sh" 2
 mkdir -p "$OUT/cmds" "${OUT}.tmp/b09"
 T=${OUT}.tmp
 tried=""
