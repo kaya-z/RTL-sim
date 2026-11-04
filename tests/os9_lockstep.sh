@@ -6,7 +6,7 @@
 # RTL run are replayed into the reference (the reference has no notion of E cycles).
 ROM=${1:?rom}; D0=${2:?disk0}; D1=${3:?disk1}; IN=${4:?script}; N=${5:-2000000}; DELAY=${6:-0}
 HERE=$(cd "$(dirname "$0")/.." && pwd)
-REF=${REF_BIN:-/tmp/ref/bin}
+REF=${REF_BIN:-$HERE/build/ref}
 T=${TMPDIR:-/tmp}/os9ls.$$; mkdir -p $T
 cp $D0 $T/rtl0.dsk; cp $D1 $T/rtl1.dsk; cp $D0 $T/ref0.dsk; cp $D1 $T/ref1.dsk
 export TZ=UTC

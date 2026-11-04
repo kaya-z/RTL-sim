@@ -4,7 +4,7 @@
 SEED=${1:?seed}; N=${2:-20000}; shift 2 2>/dev/null
 T=${TMPDIR:-/tmp}/lockstep.$$; mkdir -p $T
 HERE=$(cd "$(dirname "$0")/.." && pwd)
-REF=${REF_BIN:-/tmp/ref/bin}
+REF=${REF_BIN:-$HERE/build/ref}
 python3 $HERE/tests/gen_rand.py $SEED $T/p.bin "$@" || exit 2
 $REF/refs -img $T/p.bin -pc 0x1000 -n $N -trace $T/ref.trace -cycles $T/ref.cyc >/dev/null 2>&1
 $HERE/build/ramtest -img $T/p.bin -n $N -trace $T/rtl.trace -cycles-log $T/rtl.cyc -stop-on-ill
