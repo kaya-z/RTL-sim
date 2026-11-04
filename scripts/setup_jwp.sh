@@ -44,3 +44,10 @@ else
 fi
 echo "ready: $OUT"
 ls -1 "$OUT"
+cat <<MSG
+
+start (Level 1 / Level 2; then type  chx /d0/cmds ):
+  build/rtlsim    -rom build/jwp/os9v1.rom -0 build/jwp/OS9.dsk   -1 build/jwp/SKK_utf8.dsk -v build/os9
+  build/rtlsim -2 -rom build/jwp/os9v2.rom -0 build/jwp/OS9L2.dsk -1 build/jwp/SKK_utf8.dsk -v build/os9l2
+  (without the SKK dictionary use  -1 build/jwp/WORK.dsk ;  Pascal 'pc' is Level 2 only)
+MSG

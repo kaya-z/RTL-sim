@@ -37,3 +37,10 @@ cp "$SBC/os9/OS9.dsk" "$SBC/os9/WORK.dsk" "$B/disks/"
 # --- lock-step reference harnesses -------------------------------------------------------------
 "$HERE/tools/ref/build_ref.sh" "$SBC" "$B/ref"
 echo "ready: $B/os9v1.rom  $B/disks/  $B/os9/  $B/ref/"
+cat <<MSG
+
+next steps:
+  * Level 2 commands and BASIC09:   LEVEL=2 scripts/build_cmds.sh
+  * Pascal (pc), the editor jwp, YSD BASIC and Dhrystone need other ROM/disk images:
+        scripts/setup_jwp.sh          (see README, "ビルドと起動手順" step 5)
+MSG
