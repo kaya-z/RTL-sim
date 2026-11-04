@@ -41,10 +41,11 @@ build/rtlsim -rom build/os9v1.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk
 
 ### 4. Level 2 の起動
 
-Level 2 では、コマンド群を Level 2 の定義で別にビルドします（`setup_refs.sh` の後）。
+Level 2 では、ROM とコマンド群を Level 2 用に用意します（`setup_refs.sh` の後。`setup_refs.sh` が作る `build/os9v2.rom` が無い場合も、2 行目で作られます）。
 
 ```sh
-LEVEL=2 scripts/build_cmds.sh        # build/os9l2/cmds に出力（BASIC09 を含む）
+ls build/os9v2.rom || scripts/build_rom.sh 2   # Level 2 の ROM。無ければここで作る（失敗時は理由を表示）
+LEVEL=2 scripts/build_cmds.sh                  # build/os9l2/cmds に出力（BASIC09 を含む）
 build/rtlsim -2 -rom build/os9v2.rom -0 build/disks/OS9.dsk -1 build/disks/WORK.dsk -v build/os9l2
 ```
 
