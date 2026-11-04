@@ -59,10 +59,104 @@ Level 2 では実行ディレクトリが自動設定されないため、起動
 OS9:chx /v0/cmds
 ```
 
-### 5. BASIC09 の使い方
+### 5. 全アプリ入りで起動する（jwp・Dhrystone・YSD BASIC・BASIC09）
+
+[kaya-z/sim09](https://github.com/kaya-z/sim09) の OS-9 用アプリ（日本語ワープロ `jwp`、Dhrystone、YSD BASIC）は、日本語対応に改造した SCF（`kmode` コマンドで文字コードを指定）を前提にするため、sim09 の **ROM とディスクをそのまま使います**。取得と配置は次のスクリプトです（要ネットワーク。手順 2 の後）。
+
+```sh
+scripts/setup_jwp.sh        # refs/sim09 を取得し、build/jwp/ に ROM・ディスクを置く
+sudo apt install skkdic     # かな漢字変換の辞書（SKK-JISYO.L）。入れてから上を再実行すると SKK_utf8.dsk ができる
+```
+
+```sh
+# Level 1（BASIC09 は手順 2 の build/os9 から /v0/cmds として使う）
+build/rtlsim    -rom build/jwp/os9v1.rom -0 build/jwp/OS9.dsk   -1 build/jwp/SKK_utf8.dsk -v build/os9
+# Level 2（BASIC09 は手順 4 の build/os9l2 から）
+build/rtlsim -2 -rom build/jwp/os9v2.rom -0 build/jwp/OS9L2.dsk -1 build/jwp/SKK_utf8.dsk -v build/os9l2
+```
+
+| 場所 | 中身 |
+|---|---|
+| `/d0/cmds`（`OS9.dsk` / `OS9L2.dsk`） | 標準コマンド、`jwp`、`dhry`、`ysdbasic`、`shutdown` |
+| `/v0/cmds`（ホストの `build/os9` / `build/os9l2`） | `basic09`、`runb` と、手順 2・4 でビルドしたコマンド |
+| `/d1`（`SKK_utf8.dsk`） | SKK 辞書 `skk.dic`、学習結果 `skkuser.dic`、作業用のファイル置き場 |
+
+* ROM は `build/jwp/` のものを使ってください。本リポジトリで作った `build/os9v1.rom` / `os9v2.rom`（標準の SCF）では、`jwp` は 1 バイト文字モードになり、日本語の編集と変換が使えません。
+* 辞書が無くても `jwp` は使えます（`-1 build/jwp/WORK.dsk`）。**ディスクイメージは書き換わる**ので、残したくなければコピーを使ってください。
+* 端末は **UTF-8 の ANSI（VT100 系）端末**で、80×24 以上にしてください。
+
+## アプリケーションの使い方
+
+起動したら最初に、使うコマンドのあるディレクトリを実行ディレクトリにします（既定は `/v0/cmds`）。
 
 ```
-OS9:basic09                  ← BASIC09 が起動し B: プロンプトになる
+OS9:chx /d0/cmds        jwp / dhry / ysdbasic / shutdown などはこちら
+OS9:chx /v0/cmds        basic09 / runb はこちら（-v を付けたとき）
+```
+
+| やりたいこと | コマンド | 節 |
+|---|---|---|
+| 文章・ソース・メモを書く（エディタ） | `jwp ファイル名` | 下の「jwp」 |
+| BASIC でプログラムを書いて走らせる | `ysdbasic`（行番号つき）/ `basic09`（構造化） | 下の各節 |
+| CPU 性能を測る | `dhry` | 下の「Dhrystone」 |
+| 終了する | `shutdown`（または `Ctrl-]`） | 下の「終了」 |
+
+### OS-9 シェルの基本
+
+| コマンド | 内容 |
+|---|---|
+| `dir` / `dir /d0/cmds` | ディレクトリの一覧（`dir /d1` は作業ディスク） |
+| `list ファイル` | テキストファイルを表示 |
+| `copy 元 先` | ファイルのコピー（`copy /d0/cmds/echo /d1/work/a`） |
+| `del ファイル` / `makdir 名前` | 削除（`chd` したディレクトリ内の名前、またはパス）/ ディレクトリ作成（`makdir /d1/work`） |
+| `date` | 日時 |
+| `mfree` / `procs` / `mdir -e` | 空きメモリ / プロセス一覧 / メモリ上のモジュール一覧 |
+| `chx ディレクトリ` / `chd ディレクトリ` | 実行ディレクトリ / データディレクトリの変更 |
+
+`OS9.dsk` は `/d0`、`WORK.dsk` や辞書ディスクは `/d1`、ホストのディレクトリは `/v0` です。
+
+### jwp（エディタとして使う）
+
+`jwp` は日本語ワープロですが、**OS-9 の汎用テキストエディタ**としても使えます。OS-9 には行エディタの `edit` しか無く、全画面で編集できるものはこれだけです。OS-9 のテキストファイルは行末が CR で、`jwp` は改行形式（CR / LF / CRLF）を自動判定して、同じ形式で書き戻します。
+
+```
+OS9:chx /d0/cmds
+OS9:jwp /d1/hello.bas              ファイルを開く（なければ新規作成）
+10 FOR I=1 TO 3: PRINT I*I: NEXT   そのまま打つ。Enter で改行
+20 PRINT "END"
+^S                                 保存（Ctrl-S）
+^Q                                 終了（変更があれば確認される）
+OS9:list /d1/hello.bas             保存された内容を確認
+```
+
+書いたファイルは他のアプリに渡せます（下の例は Level 2 で確認。Level 1 の注意は最後の節）。
+
+```
+OS9:ysdbasic /d1/hello.bas         → 1 4 9 END と表示される
+OS9:copy /d1/hello.bas /d1/copy.bas
+```
+
+主なキー（全部は sim09 の `docs/JWP.md`）:
+
+| キー | 動作 | キー | 動作 |
+|---|---|---|---|
+| `←` `→` `↑` `↓` | カーソル移動 | `^S` / `^W` | 保存 / 名前を付けて保存 |
+| `^A` `^E` | 行頭 / 行末 | `^O` | 別のファイルを開く |
+| `PgUp` `PgDn` | 1 画面 上 / 下 | `^R` / `^T` | 検索 / 次を検索 |
+| `BS` `^D` | 左 / カーソル位置の 1 文字を削除 | `^K` / `^Y` | 行末まで切り取り / 貼り付け |
+| `Tab` | 全角空白（字下げ） | `^X` | 整形出力（折り返しを実際の改行にしたファイル） |
+| `^L` | 画面の描き直し | `^Q` | 終了 |
+
+* 起動オプション: `jwp -w 60 -h 20 ファイル`（窓の幅・高さ）、`-d 辞書` `-u ユーザ辞書`、`-v`（版の表示）。
+* 日本語は端末の IME で入力できます。IME を使わずに入力するには SKK 方式の変換を使います。`^J` でかなモード（ローマ字がひらがなになる。`l` で英数に戻る）、読みを大文字で始めて Space で変換、Enter で確定です。例: `Kanji` + Space → 漢字、`Nihongo` + Space → 日本語（Level 1・Level 2 とも確認）。
+* 文書サイズの上限は Level 1 が約 9000 バイト、Level 2 が約 26000 バイトです（空き RAM による）。
+* `-in script.txt` で入力を流し込む場合、LF（`^J`）は CR に変換されるため、かなモードの `^J` は送れません。スクリプトで変換を試すときは標準入力から流します（例: `(sleep 16; printf 'chx /d0/cmds\r'; …; printf '\nKanji ') | build/rtlsim …`）。
+
+### BASIC09
+
+```
+OS9:chx /v0/cmds
+OS9:basic09                  ← B: プロンプトになる
 B:EDIT hello                 ← エディタ（E: プロンプト）。行番号付きで入力する
 E:10 FOR I=1 TO 3
 E:20 PRINT I*I
@@ -75,46 +169,29 @@ B:BYE                        ← OS9: に戻る
 ```
 
 * B: プロンプトに式（`PRINT 6*7` など）を直接入力しても `What?` になります（BASIC09 の仕様で、実物の `v09c` でも同じ）。
-* 入力を一度に流し込む場合は `-in script.txt -indelay 30000000`（起動完了まで入力を保留）を使います。
+* BASIC09 のプロシージャは中間コードで、`jwp` では編集できません（BASIC09 の `EDIT` を使います）。
 * Level 1・Level 2 とも `EDIT hello` → `RUN hello` まで動作確認済みです（Level 2 は実物の `v09c` と出力が一致）。
-* 標準の `OS9.dsk` は Dragon 用で BASIC09 などを含みません（`-v` のホストディレクトリから読みます）。
+* 入力を一度に流し込む場合は `-in script.txt -indelay 30000000`（起動完了まで入力を保留）を使います。
 
-### 6. 日本語ワードプロセッサ jwp（BASIC09 以外のアプリ）
+### YSD BASIC（`ysdbasic`）
 
-[kaya-z/sim09](https://github.com/kaya-z/sim09) の OS-9 用全画面ワープロ **`jwp`**（禁則つき自動折り返し、文字単位の編集、検索、整形出力、SKK 方式のかな漢字変換。Level 1 / 2 対応）が動きます。`jwp` は日本語対応に改造した SCF（`kmode` コマンドで文字コードを指定）を前提にするため、sim09 の **ROM とディスクをそのまま使います**。
-
-```sh
-scripts/setup_jwp.sh        # refs/sim09 を取得し、build/jwp/ に ROM・ディスクを置く（要ネットワーク）
-sudo apt install skkdic     # かな漢字変換の辞書（SKK-JISYO.L）。入れてから上を再実行すると SKK_utf8.dsk ができる
-
-# Level 1
-build/rtlsim -rom build/jwp/os9v1.rom -0 build/jwp/OS9.dsk -1 build/jwp/SKK_utf8.dsk
-# Level 2
-build/rtlsim -2 -rom build/jwp/os9v2.rom -0 build/jwp/OS9L2.dsk -1 build/jwp/SKK_utf8.dsk
-```
-
-* ROM は `build/jwp/` のもの（`kmode` の既定は UTF-8）を使ってください。本リポジトリで作った `build/os9v1.rom` / `os9v2.rom`（標準の SCF）では `jwp` は 1 バイト文字モードになり、日本語の編集と変換は使えません。
-* `-v` なしで起動したら、最初に `chx /d0/cmds` を入力します（実行ディレクトリの既定が `/v0/cmds` のため）。
-* 辞書ディスクは `/d1` に見え、`jwp` が既定で `/d1/skk.dic`（辞書）と `/d1/skkuser.dic`（学習結果）を使います。辞書が無くても編集はできます（`-1 build/jwp/WORK.dsk`）。**ディスクイメージは書き換わる**ので、残したくなければコピーを使ってください。
-* 端末は **UTF-8 の ANSI（VT100 系）端末**で、80×24 以上にしてください。日本語は端末の IME で入力するか、`^J` でかなモードにして SKK で入力します。
+行番号つきの小さな BASIC（1980 年代の Microsoft 系 BASIC に近い。BASIC09 とは別物。32 ビット浮動小数点をソフトウェアで計算）です。プログラムは `jwp` で書いても、その場で打ってもかまいません。
 
 ```
 OS9:chx /d0/cmds
-OS9:jwp /d0/memo.txt         ファイルを開く（なければ新規）
-  ^J                         かなモード（ローマ字 → ひらがな。l で英数に戻る）
-  Kanji<Space>               ▽かんじ → 変換 ▼漢字 → Enter で確定
-  ^S 保存  ^Q 終了  ^R 検索  ^X 整形出力
-OS9:list /d0/memo.txt
+OS9:ysdbasic                          対話モード。Ok が出たら 1 行ずつ打つ（行番号つきはプログラムに入り、なしは即実行）
+Ok
+10 FOR I=1 TO 3: PRINT I*I: NEXT
+20 PRINT SQR(2), SIN(1), "HI"+STR$(42)
+RUN                                   → 1 4 9 と、1.41421  0.841471  HI 42
+SAVE "/d1/t.bas"                      OS-9 のテキストファイルとして保存（jwp で開ける）
+BYE                                   OS9: に戻る
+OS9:ysdbasic /d1/t.bas                ファイルを読み込んで実行し、シェルに戻る
 ```
 
-* 例: `Nihongo` + Space → 日本語（Level 1・Level 2 とも `漢字`・`日本語` への変換と保存を確認）。
-* 使い方の詳細（キー一覧・禁則処理・辞書の作り方）は sim09 の `docs/JWP.md` にあります。
-* `-in script.txt` で流し込む場合、改行コード LF（`^J`）は CR に変換されるため、かなモードの `^J` は送れません。スクリプトで変換を試すときは、標準入力から流してください（例: `(sleep 16; printf 'chx /d0/cmds\r'; …; printf '\nKanji ') | build/rtlsim …`）。
-* 文書サイズの上限は Level 1 が約 9000 バイト、Level 2 が約 26000 バイト（空き RAM による）。
+Level 1・Level 2 とも、上の例が sim09 の文書どおりの出力になることを確認しました（空き領域は Level 1 が 3600 バイト、Level 2 が 12000 バイト）。
 
-### 7. Dhrystone（`dhry`）
-
-`setup_jwp.sh` で入る sim09 のディスクには、Dhrystone 2.1（CMOC でコンパイルした OS-9 用）の `dhry` も入っています。
+### Dhrystone（`dhry`）
 
 ```
 OS9:chx /d0/cmds
@@ -140,36 +217,20 @@ done          # 差 ÷ 3000 = 1 回あたりのサイクル数（-tick 36864 は
 
 CPU の実装も I/O の実装も別物の sim09 と、1 回あたりのサイクル数が一致しました（Level 1 は整数部まで、Level 2 は 1 サイクル差）。ベンチマーク全体（タイマ割り込みとスケジューラを含む OS-9 の動作）でのサイクル精度の裏付けになります。Dhrystones/s はクロックに比例します（2 MHz なら約 228）。
 
-### 8. YSD BASIC（`ysdbasic`）
-
-同じディスクに入っている、行番号つきの小さな BASIC（1980 年代の Microsoft 系 BASIC に近い。BASIC09 とは別物。32 ビット浮動小数点をソフトウェアで計算）です。
-
-```
-OS9:chx /d0/cmds
-OS9:ysdbasic                          対話モード。Ok が出たら 1 行ずつ打つ（行番号つきはプログラムに入り、なしは即実行）
-Ok
-10 FOR I=1 TO 3: PRINT I*I: NEXT
-20 PRINT SQR(2), SIN(1), "HI"+STR$(42)
-RUN                                   → 1 4 9 と、1.41421  0.841471  HI 42
-SAVE "/d1/t.bas"                      OS-9 のテキストファイルとして保存
-BYE                                   OS9: に戻る
-OS9:ysdbasic /d1/t.bas                ファイルを読み込んで実行し、シェルに戻る
-```
-
-Level 1・Level 2 とも、上の例が sim09 の文書どおりの出力になることを確認しました（空き領域は Level 1 が 3600 バイト、Level 2 が 12000 バイト）。
-
-**Level 1 の注意**: 一度実行したコマンドのモジュールがメモリに残り、`unlink` しても空きが戻らないことがあります。そのため `ysdbasic` や `jwp` は **起動直後に最初に実行**してください。ほかのコマンドの後だと `ERROR #207`（メモリ不足）になることがあります（`mfree` で空きを確認。sim09 本体でも同じページ数・同じエラーになるゲスト OS-9 の挙動で、シミュレータの不具合ではありません）。Level 2 ではプロセスごとに 64 KiB なので起きません。
-
-### 9. 終了（`shutdown`）
+### 終了（`shutdown`）
 
 ```
 OS9:shutdown
 System halted.
 ```
 
-`shutdown` は I/O ページ基準の `+$0F`（Level 1 は `$E00F`、Level 2 は `$FF8F`）の電源制御レジスタに `$A5` を書きます。本シミュレータはこれを電源断として扱い、`[rtlsim] power off (shutdown) at E-cycle N` と表示して**正常終了（終了コード 0）**します（`-in` のスクリプトの最後に `shutdown` を入れておくと、`-cycles` の上限を決めずに自動で終われます）。`Ctrl-]` で抜けることもできます。ディスクへの書き込みは 1 回ごとに完了するので、`shutdown` を忘れても通常は壊れません。
+`shutdown` は I/O ページ基準の `+$0F`（Level 1 は `$E00F`、Level 2 は `$FF8F`）の電源制御レジスタに `$A5` を書きます。本シミュレータはこれを電源断として扱い、`[rtlsim] power off (shutdown) at E-cycle N` と表示して**正常終了（終了コード 0）**します（`-in` のスクリプトの最後に `shutdown` を入れておくと、`-cycles` の上限を決めずに自動で終われます）。`Ctrl-]` で抜けることもできます。ディスクへの書き込みは 1 回ごとに完了するので、`shutdown` を忘れても通常は壊れません。編集中のファイルは、先に保存して `jwp` を終了してから `shutdown` します。
 
-### オプション
+### Level 1 でアプリを切り替えるとき（メモリ不足 `ERROR #207`）
+
+Level 1 は 48 KiB しか RAM が無く、一度実行したコマンドのモジュールがメモリに残ります（`unlink` しても空きは戻りません）。このため、`jwp` で編集したあとに `ysdbasic` を実行すると `ERROR #207`（メモリ不足）になります。**`shutdown` して、`rtlsim` を起動し直してから次のアプリを実行してください**（ディスクイメージにファイルは残ります）。`jwp`・`ysdbasic` は起動直後の最初のコマンドとして実行するのが確実です。これは sim09 本体でも同じページ数・同じエラーになるゲスト OS-9 の挙動で、シミュレータの不具合ではありません。Level 2 はプロセスごとに 64 KiB なので起きません。
+
+## 主なオプション
 
 `-2`（Level 2 ボード）`-clock Hz`（既定 2000000）`-turbo` `-rom -l -0 -1 -v -in -indelay N -cycles N -trace f -sched f -n N -tick N -tickhz F -fixed-time -firq -vcd f [-vcd-from N -vcd-cycles N] -iolog f -dumpram f -until 文字列 -stats`。（`rtlsim` を引数なしで実行すると使い方が出ます。）
 
