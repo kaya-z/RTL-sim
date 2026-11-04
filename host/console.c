@@ -91,6 +91,13 @@ int console_poll(Console *c) {
 }
 
 void console_put(Console *c, uint8_t ch) {
+  if (c->until && !c->until_hit) {      /* compare the tail of the output with the pattern */
+    size_t n = strlen(c->until);
+    if (n > sizeof c->until_win) n = 0;
+    memmove(c->until_win, c->until_win + 1, sizeof c->until_win - 1);
+    c->until_win[sizeof c->until_win - 1] = (char)ch;
+    if (n && memcmp(c->until_win + sizeof c->until_win - n, c->until, n) == 0) c->until_hit = true;
+  }
   if (c->capture) {
     if (c->cap_n + 1 >= c->cap_cap) { c->cap_cap = c->cap_cap ? c->cap_cap * 2 : 256; c->cap = (char *)realloc(c->cap, c->cap_cap); }
     c->cap[c->cap_n++] = (char)ch; c->cap[c->cap_n] = 0;

@@ -112,9 +112,37 @@ OS9:list /d0/memo.txt
 * `-in script.txt` で流し込む場合、改行コード LF（`^J`）は CR に変換されるため、かなモードの `^J` は送れません。スクリプトで変換を試すときは、標準入力から流してください（例: `(sleep 16; printf 'chx /d0/cmds\r'; …; printf '\nKanji ') | build/rtlsim …`）。
 * 文書サイズの上限は Level 1 が約 9000 バイト、Level 2 が約 26000 バイト（空き RAM による）。
 
+### 7. Dhrystone（`dhry`）
+
+`setup_jwp.sh` で入る sim09 のディスクには、Dhrystone 2.1（CMOC でコンパイルした OS-9 用）の `dhry` も入っています。
+
+```
+OS9:chx /d0/cmds
+OS9:dhry 5000          5000 回だけ回して、最終値の検査（Dhrystone checks OK）と所要秒数を出す
+OS9:dhry               10 秒以上（OS-9 の時間で）回して Dhrystones/s を出す
+```
+
+OS-9 の時計は 1 秒単位で、Clock モジュールは**毎秒 60 ティック**を前提にしています。タイマが 50 Hz だと OS-9 の 1 秒は実時間の 1.2 秒になるので、`dhry` 自身の表示は正確ではありません。サイクル数で測るには、`dhry 1000` と `dhry 4000` を別々に実行して差を取ります（起動とシェルの分が消えます）。出力に指定の文字列が出た時点で止まり、E サイクル数を表示する `-until` を使います。
+
+```sh
+for n in 1000 4000; do
+  printf "chx /d0/cmds\rdhry $n\r" > /tmp/d.in
+  cp build/jwp/OS9.dsk /tmp/d0; cp build/jwp/WORK.dsk /tmp/d1
+  build/rtlsim -rom build/jwp/os9v1.rom -0 /tmp/d0 -1 /tmp/d1 -in /tmp/d.in -indelay 30000000 -noterm -fixed-time \
+      -tick 36864 -turbo -until "clock counts seconds)" -cycles 900000000 2>&1 | grep until
+done          # 差 ÷ 3000 = 1 回あたりのサイクル数（-tick 36864 は 1.8432 MHz の 50 Hz）
+```
+
+| | 1 回あたり（本シミュレータ） | sim09 の文書の値 | Dhrystones/s（1.8432 MHz） |
+|---|---|---|---|
+| Level 1 | **8766 サイクル** | 8766 | 210.3 |
+| Level 2 | **8853 サイクル** | 8852 | 208.2 |
+
+CPU の実装も I/O の実装も別物の sim09 と、1 回あたりのサイクル数が一致しました（Level 1 は整数部まで、Level 2 は 1 サイクル差）。ベンチマーク全体（タイマ割り込みとスケジューラを含む OS-9 の動作）でのサイクル精度の裏付けになります。Dhrystones/s はクロックに比例します（2 MHz なら約 228）。
+
 ### オプション
 
-`-2`（Level 2 ボード）`-clock Hz`（既定 2000000）`-turbo` `-rom -l -0 -1 -v -in -indelay N -cycles N -trace f -sched f -n N -tick N -tickhz F -fixed-time -firq -vcd f [-vcd-from N -vcd-cycles N] -iolog f -dumpram f -stats`。（`rtlsim` を引数なしで実行すると使い方が出ます。）
+`-2`（Level 2 ボード）`-clock Hz`（既定 2000000）`-turbo` `-rom -l -0 -1 -v -in -indelay N -cycles N -trace f -sched f -n N -tick N -tickhz F -fixed-time -firq -vcd f [-vcd-from N -vcd-cycles N] -iolog f -dumpram f -until 文字列 -stats`。（`rtlsim` を引数なしで実行すると使い方が出ます。）
 
 ## メモリマップ
 

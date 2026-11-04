@@ -19,6 +19,9 @@ typedef struct Console {
   bool  hold;                                            /* withhold all input (typed-ahead text waits) */
   int   esc;                                             /* terminal escape character (quits the simulation) */
   bool  quit;
+  const char *until;                                     /* stop when the guest output contains this text (-until) */
+  char   until_win[64];
+  bool   until_hit;
   void *saved;                                           /* saved termios + fcntl flags */
 } Console;
 

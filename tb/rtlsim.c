@@ -17,6 +17,7 @@
  *   -fixed-time      deterministic RTC               -firq            timer on FIRQ
  *   -vcd f [-vcd-from N -vcd-cycles N]  waveform dump
  *   -iolog f         log every bus access to the I/O page      -dumpram f  write the 64K RAM image at exit
+ *   -until text      stop as soon as the guest output contains `text` (prints the E-cycle count; for benchmarks)
  *   -stats           print statistics on exit */
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,6 +28,7 @@
 
 typedef struct {
   Sbc09Config cfg;
+  const char *until;
   const char *in, *trace, *sched, *iolog, *dumpram, *vcd;
   uint64_t vcd_from, vcd_cycles;
   long nmax;
@@ -126,6 +128,7 @@ int main(int argc, char **argv) {
     else if (!strcmp(argv[i], "-fixed-time")) o.cfg.fixed_time = true;
     else if (!strcmp(argv[i], "-firq")) o.cfg.timer_firq = true;
     else if (!strcmp(argv[i], "-stats")) o.stats = true;
+    else if (!strcmp(argv[i], "-until")) o.until = ARG();
     else if (!strcmp(argv[i], "-noterm")) o.term = false;
     else if (!strcmp(argv[i], "-novdisk")) o.novdisk = true;
     else if (!strcmp(argv[i], "-iolog")) o.iolog = ARG();
@@ -151,6 +154,7 @@ int main(int argc, char **argv) {
   if (o.term && !o.in) { console_use_terminal(&con, true); con.esc = o.esc; }
   else if (o.term) { console_use_terminal(&con, false); }
 
+  if (o.until && o.until[0]) con.until = o.until;
   Sbc09 *sys = (Sbc09 *)calloc(1, sizeof *sys);
   if (!sbc09_init(sys, &o.cfg, &con)) return 2;
 
@@ -198,7 +202,7 @@ int main(int argc, char **argv) {
    * so the speed does not depend on how fast the host is (as long as it is fast enough) */
   const uint64_t slice = o.clock_hz > 0 ? (uint64_t)(o.clock_hz / 1000) + 1 : 0;
   uint64_t lag_slices = 0, nslices = 0;
-  while (!pr.stop && !con.quit) {
+  while (!pr.stop && !con.quit && !con.until_hit) {
     sbc09_step_cycle(sys);
     if (slice && sbc09_cycles(sys) % slice == 0) {
       ++nslices;
@@ -211,6 +215,7 @@ int main(int argc, char **argv) {
       else if (sbc09_cycles(sys) >= pr.drain_until) break;
     }
   }
+  if (con.until_hit) fprintf(stderr, "\n[rtlsim] -until matched at E-cycle %llu (%ld instructions)\n", (unsigned long long)sbc09_cycles(sys), iter);
   if (vcd_on) vcd_close(&vcd);
   if (tf) fclose(tf);
   if (sf) fclose(sf);
