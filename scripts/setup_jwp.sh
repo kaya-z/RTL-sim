@@ -15,6 +15,8 @@ OUT=$HERE/build/jwp
 mkdir -p "$REFS" "$OUT"
 if [ ! -d "$SIM/.git" ]; then
   GIT_LFS_SKIP_SMUDGE=1 git clone --depth 1 https://github.com/kaya-z/sim09 "$SIM"
+else   # sim09 keeps growing (jwp, dhry, pc ...): follow its master (local changes of the clone are discarded)
+  GIT_LFS_SKIP_SMUDGE=1 git -C "$SIM" fetch -q --depth 1 origin master && git -C "$SIM" reset -q --hard FETCH_HEAD
 fi
 O=$SIM/os9
 for f in os9v1.rom os9v2.rom OS9.dsk OS9L2.dsk WORK.dsk; do cp "$O/$f" "$OUT/$f"; done

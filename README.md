@@ -77,7 +77,8 @@ build/rtlsim -2 -rom build/jwp/os9v2.rom -0 build/jwp/OS9L2.dsk -1 build/jwp/SKK
 
 | 場所 | 中身 |
 |---|---|
-| `/d0/cmds`（`OS9.dsk` / `OS9L2.dsk`） | 標準コマンド、`jwp`、`dhry`、`ysdbasic`、`shutdown` |
+| `/d0/cmds`（`OS9.dsk` / `OS9L2.dsk`） | 標準コマンド、`jwp`、`dhry`、`ysdbasic`、`shutdown`、`pc`（Pascal。**Level 2 のみ**） |
+| `/d0/PAS`・`/d0/LIB`（`OS9L2.dsk`） | Pascal のサンプルプログラム・ライブラリ |
 | `/v0/cmds`（ホストの `build/os9` / `build/os9l2`） | `basic09`、`runb` と、手順 2・4 でビルドしたコマンド |
 | `/d1`（`SKK_utf8.dsk`） | SKK 辞書 `skk.dic`、学習結果 `skkuser.dic`、作業用のファイル置き場 |
 
@@ -98,6 +99,7 @@ OS9:chx /v0/cmds        basic09 / runb はこちら（-v を付けたとき）
 |---|---|---|
 | 文章・ソース・メモを書く（エディタ） | `jwp ファイル名` | 下の「jwp」 |
 | BASIC でプログラムを書いて走らせる | `ysdbasic`（行番号つき）/ `basic09`（構造化） | 下の各節 |
+| Pascal でプログラムを書いて走らせる（Level 2） | `pc ファイル.pas` | 下の「Pascal」 |
 | CPU 性能を測る | `dhry` | 下の「Dhrystone」 |
 | 終了する | `shutdown`（または `Ctrl-]`） | 下の「終了」 |
 
@@ -190,6 +192,43 @@ OS9:ysdbasic /d1/t.bas                ファイルを読み込んで実行し、
 ```
 
 Level 1・Level 2 とも、上の例が sim09 の文書どおりの出力になることを確認しました（空き領域は Level 1 が 3600 バイト、Level 2 が 12000 バイト）。
+
+### Pascal（`pc`、Level 2 のみ）
+
+[sim09](https://github.com/kaya-z/sim09) に入っている MK09 の **Pascal コンパイラ**の OS-9 版です。`pc` が `pas0`（字句解析）→ `pas1`（構文解析）→ `cg`（6809 のコード生成）→ `as`（アセンブラ）を順に動かして、**OS-9 のモジュール（普通に実行できるコマンド）**を作ります。標準 Pascal の中核に、Turbo Pascal の `string`・`real`・`longint`・`set`・ファイル・`uses`・`crt` の一部を足した言語です。コンパイラが 64 KiB の空間をほぼ使うため **Level 1 では動きません**（Level 2 の `OS9L2.dsk` に入っています）。
+
+```
+OS9:chx /d0/cmds
+OS9:chd /d0/PAS                  サンプルのディレクトリ（コンパイルの出力もここにできる）
+OS9:dir
+calc.pas   hanoi.pas   hello.pas   primes.pas
+OS9:pc hello.pas                 → hello: 1611 bytes, 35 relocations, bss 609
+OS9:chx /d0/PAS                  できたモジュールのあるディレクトリを実行ディレクトリに
+OS9:hello                        → Hello from Pascal on OS-9!
+```
+
+自分のプログラムは `jwp` で書けます（**エディタ → コンパイル → 実行**。Level 2 で確認）。Pascal の文字列は `'` で囲みます。
+
+```
+OS9:chx /d0/cmds
+OS9:chd /d1                      作業ディスクにソースと出力を置く
+OS9:jwp sq.pas                   program sq;
+                                 var i: integer;
+                                 begin
+                                   for i := 1 to 5 do writeln(i, ' squared = ', i*i)
+                                 end.
+                                 （^S で保存、^Q で終了）
+OS9:pc sq.pas                    → sq: 4130 bytes, 73 relocations, bss 617
+OS9:chx /d1
+OS9:sq                           → 1 squared = 1 … 5 squared = 25
+```
+
+* 確認したサンプル: `hanoi`（4 枚で 15 手）、`primes`（100 まで 25 個）、`calc`（`3 4.5 10 0` を入力すると `count 3` `sum 17.50` `mean 5.83` `max 10.00`）。いずれも出力が正しいことを確認しました。
+* `pc [-S] [-k] [-V] [-v] [-o 出力] ファイル.pas`。`-S` はアセンブラの文（`.s`）で止める、`-k` は途中のファイルを残す、`-V` は各段のコマンドを表示します。途中のファイル（`_t` `_i` `_a`）は今のデータディレクトリに作られ、終われば消えます。
+* できたモジュールは普通の OS-9 のコマンドで、入出力のリダイレクト（`hello >out.txt`、`calc <data.txt`）もパイプも使えます。引数は `paramstr(1)` … で読めます。`uses` や `{$I …}` のファイルは、プログラムと同じ場所、今のディレクトリ、`/d0/LIB` の順に探します。
+* 時間: sim09 の文書では、シミュレータの時計で `hello.pas` が約 14 秒、200 行ほどの `calc.pas` が約 55 秒です。実時間（既定 2 MHz）で待たずに済ませるには `-turbo` を付けます。
+* 制限: できるモジュールの大きさ（`dir e` で見える大きさ）は約 28 KB までで、これを超えるとコンパイルできても動きません。名前は 15 文字まで（識別には 12 文字）、範囲検査と可変レコードはありません。詳しくは sim09 の `docs/OS9_MANUAL.md` の 9.5 節と `mk09/docs/PASCAL.md`。
+* 実行ディレクトリが `/d0/PAS` のままだと `shutdown` が見つからず `Error #216` になります。`chx /d0/cmds` に戻してから実行してください。
 
 ### Dhrystone（`dhry`）
 
