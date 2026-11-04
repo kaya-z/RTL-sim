@@ -140,6 +140,26 @@ done          # 差 ÷ 3000 = 1 回あたりのサイクル数（-tick 36864 は
 
 CPU の実装も I/O の実装も別物の sim09 と、1 回あたりのサイクル数が一致しました（Level 1 は整数部まで、Level 2 は 1 サイクル差）。ベンチマーク全体（タイマ割り込みとスケジューラを含む OS-9 の動作）でのサイクル精度の裏付けになります。Dhrystones/s はクロックに比例します（2 MHz なら約 228）。
 
+### 8. YSD BASIC（`ysdbasic`）
+
+同じディスクに入っている、行番号つきの小さな BASIC（1980 年代の Microsoft 系 BASIC に近い。BASIC09 とは別物。32 ビット浮動小数点をソフトウェアで計算）です。
+
+```
+OS9:chx /d0/cmds
+OS9:ysdbasic                          対話モード。Ok が出たら 1 行ずつ打つ（行番号つきはプログラムに入り、なしは即実行）
+Ok
+10 FOR I=1 TO 3: PRINT I*I: NEXT
+20 PRINT SQR(2), SIN(1), "HI"+STR$(42)
+RUN                                   → 1 4 9 と、1.41421  0.841471  HI 42
+SAVE "/d1/t.bas"                      OS-9 のテキストファイルとして保存
+BYE                                   OS9: に戻る
+OS9:ysdbasic /d1/t.bas                ファイルを読み込んで実行し、シェルに戻る
+```
+
+Level 1・Level 2 とも、上の例が sim09 の文書どおりの出力になることを確認しました（空き領域は Level 1 が 3600 バイト、Level 2 が 12000 バイト）。
+
+**Level 1 の注意**: 一度実行したコマンドのモジュールがメモリに残り、`unlink` しても空きが戻らないことがあります。そのため `ysdbasic` や `jwp` は **起動直後に最初に実行**してください。ほかのコマンドの後だと `ERROR #207`（メモリ不足）になることがあります（`mfree` で空きを確認。sim09 本体でも同じページ数・同じエラーになるゲスト OS-9 の挙動で、シミュレータの不具合ではありません）。Level 2 ではプロセスごとに 64 KiB なので起きません。
+
 ### オプション
 
 `-2`（Level 2 ボード）`-clock Hz`（既定 2000000）`-turbo` `-rom -l -0 -1 -v -in -indelay N -cycles N -trace f -sched f -n N -tick N -tickhz F -fixed-time -firq -vcd f [-vcd-from N -vcd-cycles N] -iolog f -dumpram f -until 文字列 -stats`。（`rtlsim` を引数なしで実行すると使い方が出ます。）
